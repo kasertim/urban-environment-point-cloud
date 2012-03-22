@@ -1,0 +1,1 @@
+/home/diga/bin/c++   -g    CMakeFiles/testsvm.dir/main.cpp.o CMakeFiles/testsvm.dir/svm.cpp.o  -o testsvm -rdynamic 

@@ -1,0 +1,32 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/diga/projects/testSVM/main.cpp
+iostream
+-
+svm.h
+/home/diga/projects/testSVM/svm.h
+svm-train.h
+/home/diga/projects/testSVM/svm-train.h
+
+/home/diga/projects/testSVM/svm-train.h
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+ctype.h
+-
+errno.h
+-
+svm.h
+/home/diga/projects/testSVM/svm.h
+
+/home/diga/projects/testSVM/svm.h
+
