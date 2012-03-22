@@ -1,0 +1,79 @@
+[Buildset]
+BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00\x12\x00b\x00e\x00n\x00c\x00h\x00m\x00a\x00r\x00k)
+
+[CMake]
+BuildDirs=/home/diga/projects/benchmark/build
+CMakeDir=/usr/share/cmake-2.8/Modules
+Current CMake Binary=file:///usr/bin/cmake
+CurrentBuildDir=file:///home/diga/projects/benchmark/build
+CurrentBuildType=Debug
+CurrentInstallDir=file:///usr/local
+Extra Arguments=
+ProjectRootRelative=./
+
+[Launch]
+Launch Configurations=Launch Configuration 0,Launch Configuration 1,Launch Configuration 2,Launch Configuration 3
+
+[Launch][Launch Configuration 0]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=benchmark
+Type=Native Application
+
+[Launch][Launch Configuration 0][Data]
+Configured from ProjectItem=benchmark,benchmark
+Project Target=benchmark,benchmark
+Working Directory=file:///home/diga/projects/benchmark/build/
+isExecutable=false
+
+[Launch][Launch Configuration 1]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=pcd_filter
+Type=Native Application
+
+[Launch][Launch Configuration 1][Data]
+Arguments=cropped_leaves.pcd -rg 20 0
+Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
+Dependency Action=Nothing
+EnvironmentGroup=default
+Executable=
+External Terminal=konsole --noclose --workdir %workdir -e %exe
+Project Target=benchmark,radiusRem
+Use External Terminal=true
+Working Directory=
+isExecutable=false
+
+[Launch][Launch Configuration 2]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=cropping
+Type=Native Application
+
+[Launch][Launch Configuration 2][Data]
+Arguments=../../florentinus/benchmarks/theatre_benchmark_original.pcd
+Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
+Dependency Action=Nothing
+EnvironmentGroup=default
+Executable=
+External Terminal=konsole --noclose --workdir %workdir -e %exe
+Project Target=benchmark,bilateral
+Use External Terminal=false
+Working Directory=file:///media/DATA/TRCS%20datasets/PCD_filter/build
+isExecutable=false
+
+[Launch][Launch Configuration 3]
+Configured Launch Modes=debug
+Configured Launchers=gdb
+Name=radiusRem
+Type=Native Application
+
+[Launch][Launch Configuration 3][Data]
+Configured from ProjectItem=benchmark,radiusRem
+Project Target=benchmark,radiusRem
+Working Directory=file:///home/diga/projects/benchmark/build/
+isExecutable=false
+
+[MakeBuilder]
+Default Make Environment Profile=0
+Number Of Jobs=1
