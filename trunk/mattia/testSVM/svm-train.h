@@ -59,6 +59,7 @@ public:
         prob.l = 0;
         max_line_len = 1024;
         line = Malloc(char,max_line_len);
+
         // default values
         param.svm_type = C_SVC;
         param.kernel_type = RBF;
@@ -79,6 +80,9 @@ public:
         nr_fold=0;
         nFeatures=0;
         strcpy(model_file_name,"output.model");
+        model = Malloc(svm_model,1);
+        model->probA = NULL;
+        model->probB = NULL;
 
     }
 
@@ -86,6 +90,7 @@ public:
         svm_destroy_param(&param);
         free(prob.y);
         free(prob.x);
+        //svm_free_and_destroy_model(&model);
 //        free(x_space);
     }
 
@@ -154,9 +159,8 @@ public:
                 fprintf(stderr, "can't save model to file %s\n", model_file_name);
                 exit(1);
             }
-            svm_free_and_destroy_model(&model);
+            //svm_free_and_destroy_model(&model);
         }
-
 
         return 0;
     }
@@ -321,8 +325,8 @@ public:
         }
 
 
-        //elements = 0;
-        //prob.l = 0;
+        elements = 0;
+        prob.l = 0;
 
         max_line_len = 1024;
         line = Malloc(char,max_line_len);
@@ -340,16 +344,16 @@ public:
                 p = strtok(NULL," \t");
                 if (p == NULL || *p == '\n') // check '\n' as ' ' may be after the last feature
                     break;
-                //   ++elements;
+                   ++elements;
             }
-            // ++elements; // contains the number of elements in the string
-            // ++prob.l; // number op
+             ++elements; // contains the number of elements in the string
+             ++prob.l; // number op
         }
         rewind(fp); // returns to the top pos of fp
 
-        //prob.y = Malloc(double,prob.l);
-        //prob.x = Malloc(struct svm_node *,prob.l);
-        //x_space = Malloc(struct svm_node,elements);
+        prob.y = Malloc(double,prob.l);
+        prob.x = Malloc(struct svm_node *,prob.l);
+        x_space = Malloc(struct svm_node,elements);
 
         max_index = 0;
         j=0;
@@ -423,12 +427,13 @@ public:
 
 class SvmPredict : protected SvmTrain {
 public:
-    struct svm_node *x;
+    //struct svm_node **input;
+    svm_problem input;
     int max_nr_attr;
 
     struct svm_model* model;
     int predict_probability;
-    
+
     FILE *output;
 
     //char *line;
@@ -439,7 +444,7 @@ public:
         max_line_len = 1024;
         predict_probability=0;
         max_nr_attr = 64;
-        x = (struct svm_node *) malloc(max_nr_attr*sizeof(struct svm_node));
+        //input = (struct svm_node *) malloc(max_nr_attr*sizeof(struct svm_node));
     }
 
     void loadModel(char *filename) {
@@ -448,6 +453,118 @@ public:
             fprintf(stderr,"can't open model file %s\n",filename);
             exit(1);
         }
+    }
+
+    void loadTest(const char *filename)
+    {
+        int elements, max_index, inst_max_index, i, j;
+        FILE *fp = fopen(filename,"r");
+        char *endptr;
+        char *idx, *val, *label;
+
+        if (fp == NULL)
+        {
+            fprintf(stderr,"can't open input file %s\n",filename);
+            exit(1);
+        }
+
+
+        elements = 0;
+        input.l = 0;
+
+        max_line_len = 1024;
+        line = Malloc(char,max_line_len);
+        // readline function writes one line in var. "line"
+        while (readline(fp)!=NULL)
+        {
+            // "\t" cuts the tab or space.
+            // strtok splits the string into tokens
+            char *p = strtok(line," \t"); // label
+
+            // features
+            while (1)
+            {
+                // split the next element
+                p = strtok(NULL," \t");
+                if (p == NULL || *p == '\n') // check '\n' as ' ' may be after the last feature
+                    break;
+                   ++elements;
+            }
+             ++elements; // contains the number of elements in the string
+             ++input.l; // number op
+        }
+        rewind(fp); // returns to the top pos of fp
+
+        input.y = Malloc(double,input.l);
+        input.x = Malloc(struct svm_node *,input.l);
+        x_space = Malloc(struct svm_node,elements);
+
+        max_index = 0;
+        j=0;
+        for (i=0;i<input.l;i++)
+        {
+            inst_max_index = -1; // strtol gives 0 if wrong format, and precomputed kernel has <index> start from 0
+            // read one line in the file
+            readline(fp);
+            input.x[i] = &x_space[j];
+            label = strtok(line," \t\n"); //save first element as label
+            if (label == NULL) // empty line
+                exit_input_error(i+1);
+
+            input.y[i] = strtod(label,&endptr);
+            if (endptr == label || *endptr != '\0')
+                exit_input_error(i+1);
+
+            while (1)
+            {
+                idx = strtok(NULL,":"); // indice
+                val = strtok(NULL," \t"); // valore
+
+                if (val == NULL)
+                    break; // exit with the last element
+
+                errno = 0;
+                x_space[j].index = (int) strtol(idx,&endptr,10);
+                if (endptr == idx || errno != 0 || *endptr != '\0' || x_space[j].index <= inst_max_index)
+                    exit_input_error(i+1);
+                else
+                    inst_max_index = x_space[j].index;
+
+                errno = 0;
+                x_space[j].value = strtod(val,&endptr);
+                if (endptr == val || errno != 0 || (*endptr != '\0' && !isspace(*endptr)))
+                    exit_input_error(i+1);
+
+                ++j;
+            }
+
+            if (inst_max_index > max_index)
+                max_index = inst_max_index;
+            x_space[j++].index = -1;
+        }
+
+
+
+        if (param.gamma == 0 && max_index > 0)
+            param.gamma = 1.0/max_index;
+
+        if (param.kernel_type == PRECOMPUTED)
+            for (i=0;i<input.l;i++)
+            {
+                if (input.x[i][0].index != 0)
+                {
+                    fprintf(stderr,"Wrong input format: first column must be 0:sample_serial_number\n");
+                    exit(1);
+                }
+                if ((int)input.x[i][0].value <= 0 || (int)input.x[i][0].value > max_index)
+                {
+                    fprintf(stderr,"Wrong input format: sample_serial_number out of range\n");
+                    exit(1);
+                }
+            }
+
+        fclose(fp);
+        //std::cout << "size: " << elements << " and " << max_index << std::endl;
     }
 
     /*
@@ -499,24 +616,27 @@ public:
             }
         }
 
-        max_line_len = 1024;
-        line = (char *)malloc(max_line_len*sizeof(char));
-        while (readline(input) != NULL)
+        //max_line_len = 1024;
+        //line = (char *)malloc(max_line_len*sizeof(char));
+
+        int ii=0;
+        while ( ii < input.l  )
+            //while (readline(input) != NULL)
         {
-            int i = 0;
+            //int i = 0;
             double target_label, predict_label;
-            char *idx, *val, *label, *endptr;
+            char *idx, *val, *endptr;
             int inst_max_index = -1; // strtol gives 0 if wrong format, and precomputed kernel has <index> start from 0
 
-            label = strtok(line," \t\n");
-            if (label == NULL) // empty line
-                exit_input_error(total+1);
+            target_label = input.y[ii]; //takes the first label
+//             if (label == NULL) // empty line
+//                 exit_input_error(total+1);
+//
+//             target_label = strtod(label,&endptr);
+//             if (endptr == label || *endptr != '\0')
+//                 exit_input_error(total+1);
 
-            target_label = strtod(label,&endptr);
-            if (endptr == label || *endptr != '\0')
-                exit_input_error(total+1);
-
-            while (1)
+            /*while (1)
             {
                 if (i>=max_nr_attr-1)	// need one more for index = -1
                 {
@@ -530,24 +650,24 @@ public:
                 if (val == NULL)
                     break;
                 errno = 0;
-                x[i].index = (int) strtol(idx,&endptr,10);
+                //x[i].index = (int) strtol(idx,&endptr,10);
                 if (endptr == idx || errno != 0 || *endptr != '\0' || x[i].index <= inst_max_index)
                     exit_input_error(total+1);
                 else
                     inst_max_index = x[i].index;
 
                 errno = 0;
-                x[i].value = strtod(val,&endptr);
+                //x[i].value = strtod(val,&endptr);
                 if (endptr == val || errno != 0 || (*endptr != '\0' && !isspace(*endptr)))
                     exit_input_error(total+1);
 
                 ++i;
             }
-            x[i].index = -1;
+            x[i].index = -1;*/
 
             if (predict_probability && (svm_type==C_SVC || svm_type==NU_SVC))
             {
-                predict_label = svm_predict_probability(model,x,prob_estimates);
+                predict_label = svm_predict_probability(model,input.x[ii],prob_estimates);
                 fprintf(output,"%g",predict_label);
                 for (j=0;j<nr_class;j++)
                     fprintf(output," %g",prob_estimates[j]);
@@ -555,7 +675,7 @@ public:
             }
             else
             {
-                predict_label = svm_predict(model,x);
+                predict_label = svm_predict(model,input.x[ii]);
                 fprintf(output,"%g\n",predict_label);
             }
 
@@ -568,6 +688,7 @@ public:
             sumtt += target_label*target_label;
             sumpt += predict_label*target_label;
             ++total;
+            ii++;
         }
         if (svm_type==NU_SVR || svm_type==EPSILON_SVR)
         {
