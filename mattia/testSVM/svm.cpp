@@ -2075,6 +2075,8 @@ svm_model *svm_train(const svm_problem *prob, const svm_parameter *param)
 	svm_model *model = Malloc(svm_model,1);
 	model->param = *param;
 	model->free_sv = 0;	// XXX
+	model->probA = NULL;
+        model->probB = NULL;
 
 	if(param->svm_type == ONE_CLASS ||
 	   param->svm_type == EPSILON_SVR ||
