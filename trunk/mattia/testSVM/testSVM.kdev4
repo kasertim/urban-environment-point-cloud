@@ -1,4 +1,3 @@
 [Project]
-Name=testSVM
 Manager=KDevCMakeManager
-VersionControl=
+Name=testSVM

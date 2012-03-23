@@ -1,0 +1,15 @@
+[Buildset]
+BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00\x0e\x00f\x00i\x00l\x00t\x00e\x00r\x00s)
+
+[CMake]
+BuildDirs[$e]=/media/DATA/TRCS/urban-environment-point-cloud/mattia/filters/build
+CMakeDir=/usr/share/cmake-2.8/Modules
+CurrentBuildDir=file:///media/DATA/TRCS/urban-environment-point-cloud/mattia/filters/build
+ProjectRootRelative=./
+
+[MakeBuilder]
+Default Make Environment Profile=0
+Number Of Jobs=1
+
+[Project]
+VersionControlSupport=kdevsubversion
