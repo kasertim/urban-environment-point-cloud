@@ -168,10 +168,6 @@ int
 main (int argc, char** argv)
 {
 
-std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr > cloud_seq_loaded;
-cloud_seq_loaded.push_back( pcl::PointCloud<pcl::PointXYZRGB>::Ptr (new pcl::PointCloud<pcl::PointXYZRGB>() ) );
-pcl::io::savePCDFileASCII("matched.pcd", cloud_seq_loaded[0]);
-
     if (argc < 4)
     {
         std::cerr << "please specify the point cloud and the command line arg '-r' or '-c' or '-s' or '-v' or '-av' or '-rg' + param\n" << std::endl;

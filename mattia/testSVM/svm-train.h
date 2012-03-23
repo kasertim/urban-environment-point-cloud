@@ -56,8 +56,9 @@ public:
 //void read_problem(const char *filename);
 //void do_cross_validation();
     SvmTrain() {
-      prob.l = 0;
-        //line = NULL;
+        prob.l = 0;
+        max_line_len = 1024;
+        line = Malloc(char,max_line_len);
         // default values
         param.svm_type = C_SVC;
         param.kernel_type = RBF;
@@ -75,22 +76,33 @@ public:
         param.weight_label = NULL;
         param.weight = NULL;
         cross_validation = 0;
-	nr_fold=0;
+        nr_fold=0;
+        strcpy(model_file_name,"output.model");
+
     }
 
-    svm_parameter param;		// set by parse_command_line
+    ~SvmTrain() {
+        svm_destroy_param(&param);
+        free(prob.y);
+        free(prob.x);
+//        free(x_space);
+    }
+
+    svm_parameter param;	// set by parse_command_line
     svm_problem prob;		// set by read_problem
     svm_model *model;
     svm_node *x_space;
     int cross_validation;
     int nr_fold;
+    char model_file_name[1024];
 
-    static char *line;
-    static int max_line_len;
+    char *line;
+    int max_line_len;
 
-    static char* readline(FILE *input)
+    char* readline(FILE *input)
     {
         int len;
+        //char *line2 = NULL;
 
         if (fgets(line,max_line_len,input) == NULL)
             return NULL;
@@ -106,14 +118,16 @@ public:
         return line;
     }
 
-    int main(int argc, char **argv)
+    int execute()
     {
-        char input_file_name[1024];
-        char model_file_name[1024];
-        const char *error_msg;
+//         char input_file_name[1024];
+//         char model_file_name[1024];
+//         const char *error_msg;
+//
+//         parse_command_line(argc, argv, input_file_name, model_file_name);
+//         read_problem(input_file_name);
 
-        parse_command_line(argc, argv, input_file_name, model_file_name);
-        read_problem(input_file_name);
+        const char *error_msg;
         error_msg = svm_check_parameter(&prob,&param);
 
         if (error_msg)
@@ -136,11 +150,7 @@ public:
             }
             svm_free_and_destroy_model(&model);
         }
-        svm_destroy_param(&param);
-        free(prob.y);
-        free(prob.x);
-        free(x_space);
-        free(line);
+
 
         return 0;
     }
@@ -156,9 +166,9 @@ public:
         {
             fprintf(stderr,"n-fold cross validation: n must >= 2\n");
             exit_with_help();
-	    return;
+            return;
         }
-        
+
         svm_cross_validation(&prob,&param,nr_fold,target);
         if (param.svm_type == EPSILON_SVR ||
                 param.svm_type == NU_SVR)
@@ -304,44 +314,46 @@ public:
             exit(1);
         }
 
-        
-        elements = 0;
+
+        //elements = 0;
+	//prob.l = 0;
 
         max_line_len = 1024;
         line = Malloc(char,max_line_len);
-	// readline function writes one line in var. "line"
+        // readline function writes one line in var. "line"
         while (readline(fp)!=NULL)
         {
-	  // "\t" cuts the tab or space. 
-	  // strtok splits the string into tokens
+            // "\t" cuts the tab or space.
+            // strtok splits the string into tokens
             char *p = strtok(line," \t"); // label
 
             // features
             while (1)
             {
-	      // split the next element
+                // split the next element
                 p = strtok(NULL," \t");
                 if (p == NULL || *p == '\n') // check '\n' as ' ' may be after the last feature
                     break;
-                ++elements;
+             //   ++elements;
             }
-            ++elements; // contains the number of elements in the string
-            ++prob.l; // number op
+           // ++elements; // contains the number of elements in the string
+           // ++prob.l; // number op
         }
         rewind(fp); // returns to the top pos of fp
 
-        prob.y = Malloc(double,prob.l);
-        prob.x = Malloc(struct svm_node *,prob.l);
-        x_space = Malloc(struct svm_node,elements);
+        //prob.y = Malloc(double,prob.l);
+        //prob.x = Malloc(struct svm_node *,prob.l);
+        //x_space = Malloc(struct svm_node,elements);
 
         max_index = 0;
         j=0;
         for (i=0;i<prob.l;i++)
         {
             inst_max_index = -1; // strtol gives 0 if wrong format, and precomputed kernel has <index> start from 0
+            // read one line in the file
             readline(fp);
             prob.x[i] = &x_space[j];
-            label = strtok(line," \t\n");
+            label = strtok(line," \t\n"); //save first element as label
             if (label == NULL) // empty line
                 exit_input_error(i+1);
 
@@ -351,11 +363,11 @@ public:
 
             while (1)
             {
-                idx = strtok(NULL,":");
-                val = strtok(NULL," \t");
+                idx = strtok(NULL,":"); // indice
+                val = strtok(NULL," \t"); // valore
 
                 if (val == NULL)
-                    break;
+                    break; // exit with the last element
 
                 errno = 0;
                 x_space[j].index = (int) strtol(idx,&endptr,10);
@@ -376,6 +388,8 @@ public:
                 max_index = inst_max_index;
             x_space[j++].index = -1;
         }
+        
+
 
         if (param.gamma == 0 && max_index > 0)
             param.gamma = 1.0/max_index;
@@ -396,5 +410,8 @@ public:
             }
 
         fclose(fp);
+	//std::cout << "size: " << elements << " and " << max_index << std::endl;
     }
+    
 };
+
