@@ -17,6 +17,7 @@ int main(int argc, char **argv) {
     pcl::PointCloud<PointType>::Ptr total_cloud (new pcl::PointCloud<PointType>);
     std::vector<pcl::IndicesPtr> clusteredGoodIndices;
     std::vector<pcl::IndicesPtr> clusteredNoisyIndices;
+    std::vector<pcl::IndicesPtr> clusteredTotalIndices;
     pcl::RegionGrowing<PointType> rgA, rgB;
 
     if (argc < 4)
@@ -59,6 +60,9 @@ int main(int argc, char **argv) {
     // Creating a single cloud with labels
     total_cloud->operator += (*noise_cloud);
     total_cloud->operator += (*good_cloud);
+    
+    clusteredTotalIndices.insert(clusteredTotalIndices.end(), clusteredNoisyIndices.begin(), clusteredNoisyIndices.end());
+    clusteredTotalIndices.insert(clusteredTotalIndices.end(), clusteredGoodIndices.begin(), clusteredGoodIndices.end());
 
     // Reprojecting the clusteredGoodIndices for the total cloud
     for (int i=0; i< clusteredGoodIndices.size(); i++)
@@ -94,31 +98,53 @@ int main(int argc, char **argv) {
     train.prob.l = clusteredNoisyIndices.size() + clusteredGoodIndices.size(); // n of elements/points
     train.prob.y = Malloc(double,train.prob.l);
     train.prob.x = Malloc(struct svm_node *,train.prob.l);
-    //train.cross_validation=1;
-    //train.nr_fold = 4; // is how many sets to split your input data
+    train.param.C=32768;
+    train.param.gamma=8;
+//     train.cross_validation=1;
+//     train.nr_fold = 8; // is how many sets to split your input data
     cout << "Training the classifier...";
     // Fill the training set with noisy data
     for (int i=0;i<clusteredNoisyIndices.size();i++)
     {
         train.prob.y[i] = 0; // label 0 for noise, 1 for good
         train.prob.x[i] = Malloc(struct svm_node,train.nFeatures+1);
+        int j=0;
 
-        train.prob.x[i][0].index = 0;
-        train.prob.x[i][0].value = featuresA.cardinality_[i];
+        if ( std::isfinite(featuresA.cardinality_[i]) )
+        {
+            train.prob.x[i][j].index = 0;
+            train.prob.x[i][j].value = featuresA.cardinality_[i];
+            j++;
+        }
 
-        train.prob.x[i][1].index = 1;
-        train.prob.x[i][1].value = featuresA.intensity_[i];
+        if ( std::isfinite(featuresA.intensity_[i]) )
+        {
+            train.prob.x[i][j].index = 1;
+            train.prob.x[i][j].value = featuresA.intensity_[i];
+            j++;
+        }
 
-        train.prob.x[i][2].index = 2;
-        train.prob.x[i][2].value = featuresA.norm_std_dev_[i];
+        if ( std::isfinite(featuresA.norm_std_dev_[i]) )
+        {
+            train.prob.x[i][j].index = 2;
+            train.prob.x[i][j].value = featuresA.norm_std_dev_[i];
+            j++;
+        }
 
-        train.prob.x[i][3].index = 3;
-        train.prob.x[i][3].value = featuresA.curv_std_dev_[i];
+        if ( std::isfinite(featuresA.curv_std_dev_[i]) ) {
+            train.prob.x[i][j].index = 3;
+            train.prob.x[i][j].value = featuresA.curv_std_dev_[i];
+            j++;
+        }
 
-        train.prob.x[i][4].index = 4;
-        train.prob.x[i][4].value = featuresA.eigModule_[i];
+        if ( std::isfinite(featuresA.eigModule_[i]) )
+        {
+            train.prob.x[i][j].index = 4;
+            train.prob.x[i][j].value = featuresA.eigModule_[i];
+            j++;
+        }
 
-        train.prob.x[i][5].index = -1; // set last element of a sample
+        train.prob.x[i][j].index = -1; // set last element of a sample
     }
 
     // Fill the training set with good data
@@ -126,27 +152,73 @@ int main(int argc, char **argv) {
     {
         train.prob.y[i] = 1; // label 0 for noise, 1 for good
         train.prob.x[i] = Malloc(struct svm_node,train.nFeatures+1);
+        int j=0;
 
-        train.prob.x[i][0].index = 0;
-        train.prob.x[i][0].value = featuresB.cardinality_[i-clusteredNoisyIndices.size()];
+        if ( std::isfinite(featuresB.cardinality_[i-clusteredNoisyIndices.size()]) )
+        {
+            train.prob.x[i][j].index = 0;
+            train.prob.x[i][j].value = featuresB.cardinality_[i-clusteredNoisyIndices.size()];
+            j++;
+        }
 
-        train.prob.x[i][1].index = 1;
-        train.prob.x[i][1].value = featuresB.intensity_[i-clusteredNoisyIndices.size()];
+        if ( std::isfinite(featuresB.intensity_[i-clusteredNoisyIndices.size()]) )
+        {
+            train.prob.x[i][j].index = 1;
+            train.prob.x[i][j].value = featuresB.intensity_[i-clusteredNoisyIndices.size()];
+            j++;
+        }
 
-        train.prob.x[i][2].index = 2;
-        train.prob.x[i][2].value = featuresB.norm_std_dev_[i-clusteredNoisyIndices.size()];
+        if ( std::isfinite(featuresB.norm_std_dev_[i-clusteredNoisyIndices.size()]) )
+        {
+            train.prob.x[i][j].index = 2;
+            train.prob.x[i][j].value = featuresB.norm_std_dev_[i-clusteredNoisyIndices.size()];
+            j++;
+        }
 
-        train.prob.x[i][3].index = 3;
-        train.prob.x[i][3].value = featuresB.curv_std_dev_[i-clusteredNoisyIndices.size()];
+        if ( std::isfinite(featuresB.curv_std_dev_[i-clusteredNoisyIndices.size()]) ) {
+            train.prob.x[i][j].index = 3;
+            train.prob.x[i][j].value = featuresB.curv_std_dev_[i-clusteredNoisyIndices.size()];
+            j++;
+        }
 
-        train.prob.x[i][4].index = 4;
-        train.prob.x[i][4].value = featuresB.eigModule_[i-clusteredNoisyIndices.size()];
+        if ( std::isfinite(featuresB.eigModule_[i-clusteredNoisyIndices.size()]) )
+        {
+            train.prob.x[i][j].index = 4;
+            train.prob.x[i][j].value = featuresB.eigModule_[i-clusteredNoisyIndices.size()];
+            j++;
+        }
 
-        train.prob.x[i][5].index = -1; // set last element of a sample
+        train.prob.x[i][j].index = -1; // set last element of a sample
     }
     cout << "done" << endl;
-    // Train the classifier
+    train.saveProblem("theatre");
+
     train.execute();
 
+    SvmPredict pred;
+    pred.model = train.model;
+    pred.input = train.prob;
+    pred.prediction_test();
+
+    pcl::PointCloud<PointType>::Ptr buff_cloud (new pcl::PointCloud<PointType>);
+    pcl::PointCloud<PointType>::Ptr output_cloud (new pcl::PointCloud<PointType>);
+
+    for (int i=0; i<clusteredTotalIndices.size(); i++) {
+        pcl::copyPointCloud(*total_cloud, clusteredTotalIndices[i].operator*(), *buff_cloud);
+	int j;
+        for (j=0; j<buff_cloud->size();j++)
+            if (pred.prediction[i]==1){
+                buff_cloud->points[j].intensity = 255;
+	    }
+            else{
+                buff_cloud->points[j].intensity = 0;
+		 
+	    }
+	//cout << buff_cloud->points[j-1].intensity << endl;
+        output_cloud->operator+=(*buff_cloud);
+        buff_cloud->clear();
+    }
+
+    pcl::io::savePCDFileBinary("output.pcd", *output_cloud);
     return 0;
 }

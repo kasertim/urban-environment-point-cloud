@@ -85,6 +85,41 @@ clean: CMakeFiles/clustering_classification.dir/clean
 .PHONY : clean
 
 #=============================================================================
+# Target rules for target CMakeFiles/test_predictor.dir
+
+# All Build rule for target.
+CMakeFiles/test_predictor.dir/all:
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/depend
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/build
+	$(CMAKE_COMMAND) -E cmake_progress_report /media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification/build/CMakeFiles  3 4
+	@echo "Built target test_predictor"
+.PHONY : CMakeFiles/test_predictor.dir/all
+
+# Include target in all.
+all: CMakeFiles/test_predictor.dir/all
+.PHONY : all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/test_predictor.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification/build/CMakeFiles 2
+	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/test_predictor.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification/build/CMakeFiles 0
+.PHONY : CMakeFiles/test_predictor.dir/rule
+
+# Convenience name for target.
+test_predictor: CMakeFiles/test_predictor.dir/rule
+.PHONY : test_predictor
+
+# clean rule for target.
+CMakeFiles/test_predictor.dir/clean:
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/clean
+.PHONY : CMakeFiles/test_predictor.dir/clean
+
+# clean rule for target.
+clean: CMakeFiles/test_predictor.dir/clean
+.PHONY : clean
+
+#=============================================================================
 # Special targets to cleanup operation of make.
 
 # Special rule to run CMake to check the build system integrity.

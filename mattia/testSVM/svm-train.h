@@ -3,12 +3,15 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <iostream>
+#include <fstream>
+
 #include "svm.h"
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
 
 class SvmTrain {
-public:
+protected:
 
     void print_null(const char *s) {}
 
@@ -52,59 +55,6 @@ public:
         exit(1);
     }
 
-//void parse_command_line(int argc, char **argv, char *input_file_name, char *model_file_name);
-//void read_problem(const char *filename);
-//void do_cross_validation();
-    SvmTrain() {
-        prob.l = 0;
-        max_line_len = 1024;
-        line = Malloc(char,max_line_len);
-
-        // default values
-        param.svm_type = C_SVC;
-        param.kernel_type = RBF;
-        param.degree = 3;
-        param.gamma = 0;	// 1/num_features
-        param.coef0 = 0;
-        param.nu = 0.5;
-        param.cache_size = 100;
-        param.C = 1;
-        param.eps = 1e-3;
-        param.p = 0.1;
-        param.shrinking = 1;
-        param.probability = 0;
-        param.nr_weight = 0;
-        param.weight_label = NULL;
-        param.weight = NULL;
-        cross_validation = 0;
-        nr_fold=0;
-        nFeatures=0;
-        strcpy(model_file_name,"output.model");
-        model = Malloc(svm_model,1);
-        model->probA = NULL;
-        model->probB = NULL;
-
-    }
-
-    ~SvmTrain() {
-        svm_destroy_param(&param);
-        free(prob.y);
-        free(prob.x);
-        //svm_free_and_destroy_model(&model);
-//        free(x_space);
-    }
-
-    svm_parameter param;	// set by parse_command_line
-    svm_problem prob;		// set by read_problem
-    svm_model *model;
-    svm_node *x_space;
-    int cross_validation;
-    int nFeatures;
-    int nr_fold;
-    char model_file_name[1024];
-
-    char *line;
-    int max_line_len;
 
     char* readline(FILE *input)
     {
@@ -123,46 +73,6 @@ public:
                 break;
         }
         return line;
-    }
-
-    int execute()
-    {
-//         char input_file_name[1024];
-//         char model_file_name[1024];
-//         const char *error_msg;
-//
-//         parse_command_line(argc, argv, input_file_name, model_file_name);
-//         read_problem(input_file_name);
-
-        const char *error_msg;
-        error_msg = svm_check_parameter(&prob,&param);
-
-        // initialize gamma parameter
-        if (param.gamma == 0 && nFeatures > 0)
-            param.gamma = 1.0/nFeatures;
-
-        if (error_msg)
-        {
-            fprintf(stderr,"ERROR: %s\n",error_msg);
-            exit(1);
-        }
-
-        if (cross_validation)
-        {
-            do_cross_validation();
-        }
-        else
-        {
-            model = svm_train(&prob,&param);
-            if (svm_save_model(model_file_name,model))
-            {
-                fprintf(stderr, "can't save model to file %s\n", model_file_name);
-                exit(1);
-            }
-            //svm_free_and_destroy_model(&model);
-        }
-
-        return 0;
     }
 
     void do_cross_validation()
@@ -309,6 +219,104 @@ public:
         }
     }
 
+//void parse_command_line(int argc, char **argv, char *input_file_name, char *model_file_name);
+//void read_problem(const char *filename);
+//void do_cross_validation();
+public:
+    SvmTrain() {
+        prob.l = 0;
+        max_line_len = 1024;
+        line = Malloc(char,max_line_len);
+
+        // default values
+        param.svm_type = C_SVC;
+        param.kernel_type = RBF;
+        param.degree = 3;
+        param.gamma = 0;	// 1/num_features
+        param.coef0 = 0;
+        param.nu = 0.5;
+        param.cache_size = 100;
+        param.C = 1;
+        param.eps = 1e-3;
+        param.p = 0.1;
+        param.shrinking = 1;
+        param.probability = 0;
+        param.nr_weight = 0;
+        param.weight_label = NULL;
+        param.weight = NULL;
+        cross_validation = 0;
+        nr_fold=0;
+        nFeatures=0;
+        strcpy(model_file_name,"output.model");
+        model = Malloc(svm_model,1);
+        model->probA = NULL;
+        model->probB = NULL;
+
+    }
+
+    ~SvmTrain() {
+        svm_destroy_param(&param);
+//         free(prob.y);
+//         free(prob.x);
+        //svm_free_and_destroy_model(&model);
+//        free(x_space);
+    }
+
+    svm_parameter param;	// set by parse_command_line
+    svm_problem prob;		// set by read_problem
+    svm_model *model;
+    svm_node *x_space;
+    int cross_validation;
+    int nFeatures;
+    int nr_fold;
+    char model_file_name[1024];
+
+    char *line;
+    int max_line_len;
+
+
+    int execute()
+    {
+//         char input_file_name[1024];
+//         char model_file_name[1024];
+//         const char *error_msg;
+//
+//         parse_command_line(argc, argv, input_file_name, model_file_name);
+//         read_problem(input_file_name);
+
+        const char *error_msg;
+        error_msg = svm_check_parameter(&prob,&param);
+
+        // initialize gamma parameter
+        if (param.gamma == 0 && nFeatures > 0)
+            param.gamma = 1.0/nFeatures;
+
+        if (error_msg)
+        {
+            fprintf(stderr,"ERROR: %s\n",error_msg);
+            exit(1);
+        }
+
+        if (cross_validation)
+        {
+            do_cross_validation();
+        }
+        else
+        {
+            model = svm_train(&prob,&param);
+            if (svm_save_model(model_file_name,model))
+            {
+                fprintf(stderr, "can't save model to file %s\n", model_file_name);
+                exit(1);
+            }
+            //svm_free_and_destroy_model(&model);
+        }
+
+        return 0;
+    }
+
+
+
 // read in a problem (in svmlight format)
 
     void read_problem(const char *filename)
@@ -344,10 +352,10 @@ public:
                 p = strtok(NULL," \t");
                 if (p == NULL || *p == '\n') // check '\n' as ' ' may be after the last feature
                     break;
-                   ++elements;
+                ++elements;
             }
-             ++elements; // contains the number of elements in the string
-             ++prob.l; // number op
+            ++elements; // contains the number of elements in the string
+            ++prob.l; // number op
         }
         rewind(fp); // returns to the top pos of fp
 
@@ -423,6 +431,29 @@ public:
         //std::cout << "size: " << elements << " and " << max_index << std::endl;
     }
 
+    /*
+     * Save problem in specified file
+     */
+    void saveProblem(char *filename) {
+        std::ofstream myfile;
+        myfile.open (filename);
+        for (int j=0; j < prob.l ; j++)
+        {
+            myfile << prob.y[j] << " ";
+            for (int i=0; i < nFeatures+1; i++)
+                if (prob.x[j][i].index != -1)
+                    myfile << prob.x[j][i].index << ":"<< prob.x[j][i].value<< " ";
+                else
+                {
+                    myfile << "\n";
+                    //fprintf(fp, "\n");
+                    break;
+                }
+        }
+        myfile.close();
+        std::cout << " * " << filename << " saved" << std::endl;
+    }
+
 };
 
 class SvmPredict : protected SvmTrain {
@@ -488,10 +519,10 @@ public:
                 p = strtok(NULL," \t");
                 if (p == NULL || *p == '\n') // check '\n' as ' ' may be after the last feature
                     break;
-                   ++elements;
+                ++elements;
             }
-             ++elements; // contains the number of elements in the string
-             ++input.l; // number op
+            ++elements; // contains the number of elements in the string
+            ++input.l; // number op
         }
         rewind(fp); // returns to the top pos of fp
 
@@ -703,5 +734,28 @@ public:
                    (double)correct/total*100,correct,total);
         if (predict_probability)
             free(prob_estimates);
+    }
+    
+    /*
+     * Save problem in specified file
+     */
+    void saveProblem(char *filename) {
+        std::ofstream myfile;
+        myfile.open (filename);
+        for (int j=0; j < prob.l ; j++)
+        {
+            myfile << prob.y[j] << " ";
+            for (int i=0; i < nFeatures+1; i++)
+                if (prob.x[j][i].index != -1)
+                    myfile << prob.x[j][i].index << ":"<< prob.x[j][i].value<< " ";
+                else
+                {
+                    myfile << "\n";
+                    //fprintf(fp, "\n");
+                    break;
+                }
+        }
+        myfile.close();
+        std::cout << " * " << filename << " saved" << std::endl;
     }
 };
