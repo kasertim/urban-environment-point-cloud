@@ -75,8 +75,14 @@ ctype.h
 -
 errno.h
 -
+iostream
+-
+fstream
+-
 svm.h
 /media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification/svm.h
+vector
+-
 
 /media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification/svm.h
 

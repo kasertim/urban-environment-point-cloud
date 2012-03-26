@@ -30,6 +30,7 @@ int main(int argc, char **argv) {
       train.prob.x[i][j].index = -1; // set last element of a sample
     }
     
+    // Extern file read training set
     train.read_problem("heart_scale");
     train.execute();
     
@@ -56,6 +57,8 @@ int main(int argc, char **argv) {
       }
       pred.input.x[i][j].index = -1; // set last element of a sample
     }
+    
+    // Extern file read testing set
     pred.loadTest("heart_scale");
     pred.predict();
 }

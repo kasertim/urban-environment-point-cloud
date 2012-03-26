@@ -100,6 +100,7 @@ protected:
 template <typename PointT>
 void pcl::RegionGrowing<PointT>::cluster (std::vector<pcl::IndicesPtr> *output) {
 
+  output->clear();
   std::vector<bool> processed ( input_->points.size (), false );
   std::vector<int> nn_indices;
   std::vector<float> nn_distances;

@@ -7,3 +7,7 @@ add_definitions(${PCL_DEFINITIONS})
 add_executable(clustering_classification main.cpp svm.cpp)
 TARGET_LINK_LIBRARIES( clustering_classification ${PCL_LIBRARIES})
 
+
+project(test_predictor)
+add_executable(test_predictor test_predictor.cpp svm.cpp)
+TARGET_LINK_LIBRARIES(test_predictor ${PCL_LIBRARIES})

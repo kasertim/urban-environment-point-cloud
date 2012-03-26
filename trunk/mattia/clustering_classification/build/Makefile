@@ -108,6 +108,19 @@ clustering_classification/fast:
 	$(MAKE) -f CMakeFiles/clustering_classification.dir/build.make CMakeFiles/clustering_classification.dir/build
 .PHONY : clustering_classification/fast
 
+#=============================================================================
+# Target rules for targets named test_predictor
+
+# Build rule for target.
+test_predictor: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 test_predictor
+.PHONY : test_predictor
+
+# fast build rule for target.
+test_predictor/fast:
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/build
+.PHONY : test_predictor/fast
+
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -138,6 +151,7 @@ svm.o: svm.cpp.o
 # target to build an object file
 svm.cpp.o:
 	$(MAKE) -f CMakeFiles/clustering_classification.dir/build.make CMakeFiles/clustering_classification.dir/svm.cpp.o
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/svm.cpp.o
 .PHONY : svm.cpp.o
 
 svm.i: svm.cpp.i
@@ -146,6 +160,7 @@ svm.i: svm.cpp.i
 # target to preprocess a source file
 svm.cpp.i:
 	$(MAKE) -f CMakeFiles/clustering_classification.dir/build.make CMakeFiles/clustering_classification.dir/svm.cpp.i
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/svm.cpp.i
 .PHONY : svm.cpp.i
 
 svm.s: svm.cpp.s
@@ -154,7 +169,32 @@ svm.s: svm.cpp.s
 # target to generate assembly for a file
 svm.cpp.s:
 	$(MAKE) -f CMakeFiles/clustering_classification.dir/build.make CMakeFiles/clustering_classification.dir/svm.cpp.s
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/svm.cpp.s
 .PHONY : svm.cpp.s
+
+test_predictor.o: test_predictor.cpp.o
+.PHONY : test_predictor.o
+
+# target to build an object file
+test_predictor.cpp.o:
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/test_predictor.cpp.o
+.PHONY : test_predictor.cpp.o
+
+test_predictor.i: test_predictor.cpp.i
+.PHONY : test_predictor.i
+
+# target to preprocess a source file
+test_predictor.cpp.i:
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/test_predictor.cpp.i
+.PHONY : test_predictor.cpp.i
+
+test_predictor.s: test_predictor.cpp.s
+.PHONY : test_predictor.s
+
+# target to generate assembly for a file
+test_predictor.cpp.s:
+	$(MAKE) -f CMakeFiles/test_predictor.dir/build.make CMakeFiles/test_predictor.dir/test_predictor.cpp.s
+.PHONY : test_predictor.cpp.s
 
 # Help Target
 help:
@@ -165,12 +205,16 @@ help:
 	@echo "... clustering_classification"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... test_predictor"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
 	@echo "... svm.o"
 	@echo "... svm.i"
 	@echo "... svm.s"
+	@echo "... test_predictor.o"
+	@echo "... test_predictor.i"
+	@echo "... test_predictor.s"
 .PHONY : help
 
 

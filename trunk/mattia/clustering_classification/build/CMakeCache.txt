@@ -382,6 +382,12 @@ clustering_classification_BINARY_DIR:STATIC=/media/DATA/TRCS/urban-environment-p
 //Value Computed by CMake
 clustering_classification_SOURCE_DIR:STATIC=/media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification
 
+//Value Computed by CMake
+test_predictor_BINARY_DIR:STATIC=/media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification/build
+
+//Value Computed by CMake
+test_predictor_SOURCE_DIR:STATIC=/media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification
+
 
 ########################
 # INTERNAL cache entries
