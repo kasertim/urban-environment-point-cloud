@@ -20,12 +20,15 @@ int main(int argc, char **argv) {
     std::vector<pcl::IndicesPtr> clusteredTotalIndices;
     pcl::RegionGrowing<PointType> rgA, rgB;
 
-    if (argc < 4)
+    if (argc < 5)
     {
-        cerr << "This program computes the classifier starting from two input clouds having x,y,z and intensity info: " << endl;
-        cerr << "  - noise_cloud: from which it extracts the segments labelled as noisy" << endl;
-        cerr << "  - good_cloud: from which it extracts the segments labelled as good\n" << endl;
-        cerr << "usage: " << argv[0] << " noise_cloud.pcd good_cloud.pcd clustering_ray" << endl;
+        cerr << "\nThis program computes the classifier starting from two input clouds having x,y,z and intensity info: " << endl;
+        cerr << "\n  usage: " << argv[0] << " noise_cloud.pcd good_cloud.pcd radius output.pcd" << endl;
+	cerr << "  - noise_cloud: from which it extracts the segments labelled as noisy" << endl;
+        cerr << "  - good_cloud: from which it extracts the segments labelled as good" << endl;
+	cerr << "  - clustering_radius: radius used for neighbour search" << endl;
+	cerr << "  - output: outputs the cloud showing the classification results\n" << endl;
+	cerr << "  ex:    "<< argv[0] << " noisy_points.pcd good_points.pcd 50 output.pcd\n" << endl;
         exit(0);
     }
 
@@ -34,7 +37,6 @@ int main(int argc, char **argv) {
         return 0;
     if (pcl::io::loadPCDFile (argv[2], *good_cloud))
         return 0;
-
 
     // Create the clusters
     cout << "Clustering noisy points...";
@@ -219,6 +221,6 @@ int main(int argc, char **argv) {
         buff_cloud->clear();
     }
 
-    pcl::io::savePCDFileBinary("output.pcd", *output_cloud);
+    pcl::io::savePCDFileBinary(argv[4], *output_cloud);
     return 0;
 }
