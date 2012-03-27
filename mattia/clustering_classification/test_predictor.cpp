@@ -100,7 +100,9 @@ int main(int argc, char **argv) {
         pred.input.x[i][j].index = -1; // set last element of a sample
     }
 
-    pred.prediction_test();
+    cout << "Computing classification..." ;
+    pred.predict();
+    cout << "done." << endl;
 
     // Save the results
     for (int i=0; i<clusteredIndices.size(); i++) {

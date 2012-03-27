@@ -465,7 +465,7 @@ public:
 
     struct svm_model* model;
     bool predict_probability;
-    
+
     std::vector<double> prediction;
 
     FILE *output;
@@ -602,9 +602,8 @@ public:
     }
 
     /*
-     * predicts using the SVM machine
-     * remember to define model and input
-     * the input has to be labelled to define the prediciton accuracy
+     * Predicts using the SVM machine on labelled input set.
+     * It outputs the prediciton accuracy
      * */
     void prediction_test()
     {
@@ -631,8 +630,8 @@ public:
         int nr_class=svm_get_nr_class(model);
         double *prob_estimates=NULL;
         int j;
-	
-	prediction.clear();
+
+        prediction.clear();
 
         output = fopen("prediction.output","w");
 
@@ -742,7 +741,80 @@ public:
         if (predict_probability)
             free(prob_estimates);
     }
-    
+
+    /*
+    * Predicts using the SVM machine.
+    * */
+    void predict()
+    {
+        if (predict_probability)
+            if (svm_check_probability_model(model)==0)
+            {
+                fprintf(stderr,"Model does not support probabiliy estimates\n");
+                exit(1);
+            }
+            else
+                if (svm_check_probability_model(model)!=0)
+                    printf("Model supports probability estimates, but disabled in prediction.\n");
+
+        int correct = 0;
+        int total = 0;
+
+        int svm_type=svm_get_svm_type(model);
+        int nr_class=svm_get_nr_class(model);
+        double *prob_estimates=NULL;
+        int j;
+
+        prediction.clear();
+
+        output = fopen("prediction.output","w");
+
+        if (predict_probability)
+        {
+            if (svm_type==NU_SVR || svm_type==EPSILON_SVR)
+                printf("Prob. model for test data: target value = predicted value + z,\nz: Laplace distribution e^(-|z|/sigma)/(2sigma),sigma=%g\n",svm_get_svr_probability(model));
+            else
+            {
+                int *labels=(int *) malloc(nr_class*sizeof(int));
+                svm_get_labels(model,labels);
+                prob_estimates = (double *) malloc(nr_class*sizeof(double));
+                fprintf(output,"labels");
+                for (j=0;j<nr_class;j++)
+                    fprintf(output," %d",labels[j]);
+                fprintf(output,"\n");
+                free(labels);
+            }
+        }
+        int ii=0;
+        while ( ii < input.l  )
+        {
+            double predict_label;
+            char *idx, *val, *endptr;
+            int inst_max_index = -1; // strtol gives 0 if wrong format, and precomputed kernel has <index> start from 0
+
+            if (predict_probability && (svm_type==C_SVC || svm_type==NU_SVC))
+            {
+                predict_label = svm_predict_probability(model,input.x[ii],prob_estimates);
+                fprintf(output,"%g",predict_label);
+                for (j=0;j<nr_class;j++)
+                    fprintf(output," %g",prob_estimates[j]);
+                fprintf(output,"\n");
+            }
+            else
+            {
+                predict_label = svm_predict(model,input.x[ii]);
+                fprintf(output,"%g\n",predict_label);
+            }
+            prediction.push_back(predict_label);
+
+            ++total;
+            ii++;
+        }
+
+        if (predict_probability)
+            free(prob_estimates);
+    }
+
     /*
      * Save problem in specified file
      */
