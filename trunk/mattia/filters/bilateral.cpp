@@ -6,6 +6,8 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl/common/time.h>
 
+#include <pcl/octree/octree.h>
+
 typedef pcl::PointXYZI PointType;
 typedef pcl::PointCloud<PointType> Cloud;
 typedef Cloud::Ptr CloudPtr;
@@ -24,19 +26,40 @@ main (int argc, char** argv)
 //
  pcl::PassThrough<PointType> pass;
  pass.setInputCloud (cloud_in);
+ pass.setFilterLimitsNegative(1);
  //pass.setKeepOrganized(true);
 
  pass.setFilterFieldName ("x");
  pass.setFilterLimits (1300, 2200.0);
- pass.filter (*cloud_in);
-
- pass.setFilterFieldName ("y");
- pass.setFilterLimits (4000, 10000);
- pass.filter (*cloud_in);
-
- pass.setFilterFieldName ("z");
- pass.setFilterLimits (-2000, 500.0);
+  pass.filter (*cloud_out);
+  
+  pass.setInputCloud(cloud_out);
+  
+  pass.setFilterFieldName ("y");
+  pass.setFilterLimits (8000, 10000);
+  pass.filter (*cloud_out);
+// 
+  pass.setFilterFieldName ("z");
+  pass.setFilterLimits (-2000, -200);
  pass.filter (*cloud_out);
+ 
+ 
+ pcl::octree::OctreePointCloudChangeDetector<pcl::PointXYZI> octree (10.0);
+ 
+   // Add points from cloudA to octree
+  octree.setInputCloud (cloud_out);
+  octree.addPointsFromInputCloud ();
+
+  // Switch octree buffers: This resets octree but keeps previous tree structure in memory.
+  octree.switchBuffers ();
+  
+   // Add points from cloudB to octree
+  octree.setInputCloud (cloud_in);
+  octree.addPointsFromInputCloud ();
+  
+  std::vector<int> newPointIdxVector;
+  // Get vector of point indices from octree voxels which did not exist in previous buffer
+  octree.getPointIndicesFromNewVoxels (newPointIdxVector);
 //
 ///////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -117,7 +140,15 @@ main (int argc, char** argv)
 //  filestream.close ();
 
 //  std::cout << "Output size: " << cloud_out->width << " by " << cloud_out->height << std::endl;
- pcl::io::savePCDFileBinary ("cropped_ghosts.pcd", *cloud_out);
+  CloudPtr cloud_n (new Cloud);
+  CloudPtr cloud_buff (new Cloud);
+  pcl::io::loadPCDFile ("../cropped_leaves.pcd", *cloud_n);
+  
+  pcl::copyPointCloud(*cloud_in, newPointIdxVector, *cloud_buff);
+  
+  cloud_buff->operator+=(*cloud_n);
+  
+ pcl::io::savePCDFileBinary<pcl::PointXYZI>("cropped_cloud.pcd",*cloud_buff);
     std::cout << std::endl << "Goodbye World" << std::endl << std::endl;
     return (0);
 }
