@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <limits.h>
 #include "svm.h"
+#include <iostream>
 int libsvm_version = LIBSVM_VERSION;
 typedef float Qfloat;
 typedef signed char schar;
@@ -36,6 +37,7 @@ static inline double powi(double base, int times)
 #define INF HUGE_VAL
 #define TAU 1e-12
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
+#define Realloc(var,type,n) (type *)realloc(var,(n)*sizeof(type))
 
 static void print_string_stdout(const char *s)
 {
@@ -2658,6 +2660,16 @@ int svm_save_model(const char *model_file_name, const svm_model *model)
 			fprintf(fp," %d",model->nSV[i]);
 		fprintf(fp, "\n");
 	}
+	
+    fprintf(fp, "scaling ");
+    int ii=0;
+    while (model->scaling[ii].index != -1)
+    {
+        fprintf(fp,"%d:%.8g ",model->scaling[ii].index,model->scaling[ii].value);
+        ii++;
+    }
+    fprintf(fp, "\n");
+	
 
 	fprintf(fp, "SV\n");
 	const double * const *sv_coef = model->sv_coef;
@@ -2814,6 +2826,34 @@ svm_model *svm_load_model(const char *model_file_name)
 			for(int i=0;i<n;i++)
 				fscanf(fp,"%d",&model->nSV[i]);
 		}
+        else if (strcmp(cmd,"scaling")==0)
+        {
+	    char *idx,*val;
+	    int ii=0;
+	    char delims[]="\t: ";
+	    model->scaling = Malloc(struct svm_node, 1);
+	    fscanf(fp,"%500[^\n]",cmd);
+	    idx = strtok(cmd, ":");
+
+	    while(idx!=NULL)
+            {
+                val = strtok(NULL, " \t");
+
+                model->scaling=Realloc(model->scaling,struct svm_node, ii+1);
+
+                model->scaling[ii].index = atoi(idx);
+                model->scaling[ii].value = atof(val);
+                ++ii;
+                idx = strtok(NULL, ":");
+            }
+		
+// 		printf("%d e %f\n",model->scaling[0].index,model->scaling[0].value);
+// 		printf("%d e %f\n",model->scaling[1].index,model->scaling[1].value);
+// 		printf("%d e %f\n",model->scaling[2].index,model->scaling[2].value);
+// 		printf("%d e %f\n",model->scaling[3].index,model->scaling[3].value);
+// 		printf("%d e %f\n",model->scaling[4].index,model->scaling[4].value);
+
+        }	
 		else if(strcmp(cmd,"SV")==0)
 		{
 			while(1)

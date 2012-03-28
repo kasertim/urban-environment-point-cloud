@@ -9,6 +9,7 @@
 #include "svm.h"
 #include <vector>
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
+#define Realloc(var,type,n) (type *)realloc(var,(n)*sizeof(type))
 
 
 class SvmTrain {
@@ -267,6 +268,9 @@ public:
     svm_problem prob;		// set by read_problem
     svm_model *model;
     svm_node *x_space;
+    
+    // Stores the scaling factors
+    svm_scaling scaling;
     int cross_validation;
     int nFeatures;
     int nr_fold;
@@ -305,6 +309,7 @@ public:
         else
         {
             model = svm_train(&prob,&param);
+	    model->scaling = scaling.obj;
             if (svm_save_model(model_file_name,model))
             {
                 fprintf(stderr, "can't save model to file %s\n", model_file_name);
@@ -462,6 +467,7 @@ public:
     //struct svm_node **input;
     svm_problem input;
     int max_nr_attr;
+    svm_scaling scaling;
 
     struct svm_model* model;
     bool predict_probability;
@@ -487,6 +493,7 @@ public:
             fprintf(stderr,"can't open model file %s\n",filename);
             exit(1);
         }
+        scaling.obj = model->scaling;
     }
 
     void loadTest(const char *filename)

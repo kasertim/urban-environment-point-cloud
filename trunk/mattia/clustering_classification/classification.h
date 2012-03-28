@@ -86,7 +86,7 @@ private:
                 buff = buff + cloud_->points[ clusters_[i]->operator[](j) ].intensity;
             }
             // Normalized Intensity
-            intensity_.push_back( (double)(buff / clusters_[i]->size()) / 255.0 );
+            intensity_.push_back( (double)(buff / clusters_[i]->size()) );
         }
     }
 

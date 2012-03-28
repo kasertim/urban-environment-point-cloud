@@ -57,6 +57,14 @@ int main(int argc, char **argv) {
     pred.input.y = Malloc(double,pred.input.l);
     pred.input.x = Malloc(struct svm_node *,pred.input.l);
 
+    
+//         // display the maximum
+// 	cout << pred.scaling.obj[0].value << endl;
+// 	cout << pred.scaling.obj[1].value << endl;
+// 	cout << pred.scaling.obj[2].value << endl;
+// 	cout << pred.scaling.obj[3].value << endl;
+// 	cout << pred.scaling.obj[4].value << endl;
+    
     for (int i=0;i<clusteredIndices.size();i++)
     {
         pred.input.y[i] = 0; // label 0 for noise, 1 for good
@@ -66,34 +74,34 @@ int main(int argc, char **argv) {
         if ( std::isfinite(features.cardinality_[i]) )
         {
             pred.input.x[i][j].index = 0;
-            pred.input.x[i][j].value = features.cardinality_[i];
+            pred.input.x[i][j].value = features.cardinality_[i] / pred.scaling.obj[0].value;
             j++;
         }
 
         if ( std::isfinite(features.intensity_[i]) )
         {
             pred.input.x[i][j].index = 1;
-            pred.input.x[i][j].value = features.intensity_[i];
+            pred.input.x[i][j].value = features.intensity_[i] / pred.scaling.obj[1].value;
             j++;
         }
 
         if ( std::isfinite(features.norm_std_dev_[i]) )
         {
             pred.input.x[i][j].index = 2;
-            pred.input.x[i][j].value = features.norm_std_dev_[i];
+            pred.input.x[i][j].value = features.norm_std_dev_[i] / pred.scaling.obj[2].value;
             j++;
         }
 
         if ( std::isfinite(features.curv_std_dev_[i]) ) {
             pred.input.x[i][j].index = 3;
-            pred.input.x[i][j].value = features.curv_std_dev_[i];
+            pred.input.x[i][j].value = features.curv_std_dev_[i] / pred.scaling.obj[3].value;
             j++;
         }
 
         if ( std::isfinite(features.eigModule_[i]) )
         {
             pred.input.x[i][j].index = 4;
-            pred.input.x[i][j].value = features.eigModule_[i];
+            pred.input.x[i][j].value = features.eigModule_[i] / pred.scaling.obj[4].value;
             j++;
         }
 

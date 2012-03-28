@@ -22,6 +22,11 @@ struct svm_problem
 	struct svm_node **x;
 };
 
+struct svm_scaling
+{
+  struct svm_node *obj;
+};
+
 enum { C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR };	/* svm_type */
 enum { LINEAR, POLY, RBF, SIGMOID, PRECOMPUTED }; /* kernel_type */
 
@@ -68,6 +73,9 @@ struct svm_model
 	/* XXX */
 	int free_sv;		/* 1 if svm_model is created by svm_load_model*/
 				/* 0 if svm_model is created by svm_train */
+				
+	/* for scaling */
+	struct svm_node *scaling;
 };
 
 struct svm_model *svm_train(const struct svm_problem *prob, const struct svm_parameter *param);

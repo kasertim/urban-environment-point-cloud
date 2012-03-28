@@ -72,38 +72,65 @@ int main(int argc, char **argv) {
             clusteredGoodIndices[i]->operator[](j) = clusteredGoodIndices[i]->operator[](j) + noise_cloud->size();
         }
 
-//     // Test to check if the reprojectione went well
-//     for (int i=0; i<10; i++) {
-//         int rand_n = rand()%2001;
-//         cout << "\nTotal cloud test." << endl;
-//         cout << "Random point " << rand_n << endl;
-//         cout <<"1 "<<total_cloud->points[ clusteredNoisyIndices[rand_n]->operator[](0) ].x << " "
-//              << total_cloud->points[ clusteredNoisyIndices[rand_n]->operator[](0) ].y << " "
-//              << total_cloud->points[ clusteredNoisyIndices[rand_n]->operator[](0) ].z << endl;
-//         cout <<"1 "<<noise_cloud->points[ clusteredNoisyIndices[rand_n]->operator[](0) ].x << " "
-//              << noise_cloud->points[ clusteredNoisyIndices[rand_n]->operator[](0) ].y << " "
-//              << noise_cloud->points[ clusteredNoisyIndices[rand_n]->operator[](0) ].z << endl;
-//
-//         cout  << "2 "<<total_cloud->points[ clusteredGoodIndices[rand_n]->operator[](0)].x << " "
-//              << total_cloud->points[ clusteredGoodIndices[rand_n]->operator[](0) ].y << " "
-//              << total_cloud->points[ clusteredGoodIndices[rand_n]->operator[](0) ].z << endl;
-//         cout << "2 "<<good_cloud->points[ clusteredGoodIndices[rand_n]->operator[](0) - noise_cloud->size()].x << " "
-//              << good_cloud->points[ clusteredGoodIndices[rand_n]->operator[](0) - noise_cloud->size()].y << " "
-//              << good_cloud->points[ clusteredGoodIndices[rand_n]->operator[](0) - noise_cloud->size()].z << endl;
-//         cout << endl;
-//     }
+
     
     // Generating the vector for SVM training
     SvmTrain train;
-
+    
     train.nFeatures=5; // n of features for a point
     train.prob.l = clusteredNoisyIndices.size() + clusteredGoodIndices.size(); // n of elements/points
     train.prob.y = Malloc(double,train.prob.l);
     train.prob.x = Malloc(struct svm_node *,train.prob.l);
-    train.param.C=32768;
-    train.param.gamma=8;
+    train.scaling.obj = Malloc(struct svm_node,train.nFeatures+1);
+    train.param.C=8192;//32768;
+    train.param.gamma=2;//8;
 //     train.cross_validation=1;
 //     train.nr_fold = 8; // is how many sets to split your input data
+    
+    // saving the scaling factors
+    train.scaling.obj[0].index=0;
+    if ( *( std::max_element( featuresA.cardinality_.begin(), featuresA.cardinality_.end() ) ) >
+         *( std::max_element( featuresB.cardinality_.begin(), featuresB.cardinality_.end() ) ) )
+        train.scaling.obj[0].value=*( std::max_element( featuresA.cardinality_.begin(), featuresA.cardinality_.end() ) );
+    else
+        train.scaling.obj[0].value=*( std::max_element( featuresB.cardinality_.begin(), featuresB.cardinality_.end() ) );
+    
+    train.scaling.obj[1].index=1;
+    if ( *( std::max_element( featuresA.intensity_.begin(), featuresA.intensity_.end() ) ) >
+         *( std::max_element( featuresB.intensity_.begin(), featuresB.intensity_.end() ) ) )
+        train.scaling.obj[1].value=*( std::max_element( featuresA.intensity_.begin(), featuresA.intensity_.end() ) );
+    else
+        train.scaling.obj[1].value=*( std::max_element( featuresB.intensity_.begin(), featuresB.intensity_.end() ) );
+    
+    train.scaling.obj[2].index=2;
+    if ( *( std::max_element( featuresA.norm_std_dev_.begin(), featuresA.norm_std_dev_.end() ) ) >
+         *( std::max_element( featuresB.norm_std_dev_.begin(), featuresB.norm_std_dev_.end() ) ) )
+        train.scaling.obj[2].value=*( std::max_element( featuresA.norm_std_dev_.begin(), featuresA.norm_std_dev_.end() ) );
+    else
+        train.scaling.obj[2].value=*( std::max_element( featuresB.norm_std_dev_.begin(), featuresB.norm_std_dev_.end() ) );
+    
+    train.scaling.obj[3].index=3;
+    if ( *( std::max_element( featuresA.curv_std_dev_.begin(), featuresA.curv_std_dev_.end() ) ) >
+         *( std::max_element( featuresB.curv_std_dev_.begin(), featuresB.curv_std_dev_.end() ) ) )
+        train.scaling.obj[3].value=*( std::max_element( featuresA.curv_std_dev_.begin(), featuresA.curv_std_dev_.end() ) );
+    else
+        train.scaling.obj[3].value=*( std::max_element( featuresB.curv_std_dev_.begin(), featuresB.curv_std_dev_.end() ) );
+    
+    train.scaling.obj[4].index=4;
+    if ( *( std::max_element( featuresA.eigModule_.begin(), featuresA.eigModule_.end() ) ) >
+         *( std::max_element( featuresB.eigModule_.begin(), featuresB.eigModule_.end() ) ) )
+        train.scaling.obj[4].value=*( std::max_element( featuresA.eigModule_.begin(), featuresA.eigModule_.end() ) );
+    else
+        train.scaling.obj[4].value=*( std::max_element( featuresB.eigModule_.begin(), featuresB.eigModule_.end() ) );
+    
+    train.scaling.obj[5].index=-1;
+    // display the maximum
+// 	cout << train.scaling.obj[0].value << endl;
+// 	cout << train.scaling.obj[1].value << endl;
+// 	cout << train.scaling.obj[2].value << endl;
+// 	cout << train.scaling.obj[3].value << endl;
+// 	cout << train.scaling.obj[4].value << endl;
+	
     cout << "Training the classifier...";
     // Fill the training set with noisy data
     for (int i=0;i<clusteredNoisyIndices.size();i++)
@@ -115,34 +142,34 @@ int main(int argc, char **argv) {
         if ( std::isfinite(featuresA.cardinality_[i]) )
         {
             train.prob.x[i][j].index = 0;
-            train.prob.x[i][j].value = featuresA.cardinality_[i];
+            train.prob.x[i][j].value = featuresA.cardinality_[i] / train.scaling.obj[0].value;
             j++;
         }
 
         if ( std::isfinite(featuresA.intensity_[i]) )
         {
             train.prob.x[i][j].index = 1;
-            train.prob.x[i][j].value = featuresA.intensity_[i];
+            train.prob.x[i][j].value = featuresA.intensity_[i] / train.scaling.obj[1].value;
             j++;
         }
 
         if ( std::isfinite(featuresA.norm_std_dev_[i]) )
         {
             train.prob.x[i][j].index = 2;
-            train.prob.x[i][j].value = featuresA.norm_std_dev_[i];
+            train.prob.x[i][j].value = featuresA.norm_std_dev_[i] / train.scaling.obj[2].value;
             j++;
         }
 
         if ( std::isfinite(featuresA.curv_std_dev_[i]) ) {
             train.prob.x[i][j].index = 3;
-            train.prob.x[i][j].value = featuresA.curv_std_dev_[i];
+            train.prob.x[i][j].value = featuresA.curv_std_dev_[i] / train.scaling.obj[3].value;
             j++;
         }
 
         if ( std::isfinite(featuresA.eigModule_[i]) )
         {
             train.prob.x[i][j].index = 4;
-            train.prob.x[i][j].value = featuresA.eigModule_[i];
+            train.prob.x[i][j].value = featuresA.eigModule_[i] / train.scaling.obj[4].value;
             j++;
         }
 
@@ -159,34 +186,34 @@ int main(int argc, char **argv) {
         if ( std::isfinite(featuresB.cardinality_[i-clusteredNoisyIndices.size()]) )
         {
             train.prob.x[i][j].index = 0;
-            train.prob.x[i][j].value = featuresB.cardinality_[i-clusteredNoisyIndices.size()];
+            train.prob.x[i][j].value = featuresB.cardinality_[i-clusteredNoisyIndices.size()] / train.scaling.obj[0].value;
             j++;
         }
 
         if ( std::isfinite(featuresB.intensity_[i-clusteredNoisyIndices.size()]) )
         {
             train.prob.x[i][j].index = 1;
-            train.prob.x[i][j].value = featuresB.intensity_[i-clusteredNoisyIndices.size()];
+            train.prob.x[i][j].value = featuresB.intensity_[i-clusteredNoisyIndices.size()] / train.scaling.obj[1].value;
             j++;
         }
 
         if ( std::isfinite(featuresB.norm_std_dev_[i-clusteredNoisyIndices.size()]) )
         {
             train.prob.x[i][j].index = 2;
-            train.prob.x[i][j].value = featuresB.norm_std_dev_[i-clusteredNoisyIndices.size()];
+            train.prob.x[i][j].value = featuresB.norm_std_dev_[i-clusteredNoisyIndices.size()] / train.scaling.obj[2].value;
             j++;
         }
 
         if ( std::isfinite(featuresB.curv_std_dev_[i-clusteredNoisyIndices.size()]) ) {
             train.prob.x[i][j].index = 3;
-            train.prob.x[i][j].value = featuresB.curv_std_dev_[i-clusteredNoisyIndices.size()];
+            train.prob.x[i][j].value = featuresB.curv_std_dev_[i-clusteredNoisyIndices.size()] / train.scaling.obj[3].value;
             j++;
         }
 
         if ( std::isfinite(featuresB.eigModule_[i-clusteredNoisyIndices.size()]) )
         {
             train.prob.x[i][j].index = 4;
-            train.prob.x[i][j].value = featuresB.eigModule_[i-clusteredNoisyIndices.size()];
+            train.prob.x[i][j].value = featuresB.eigModule_[i-clusteredNoisyIndices.size()] / train.scaling.obj[4].value;
             j++;
         }
 
