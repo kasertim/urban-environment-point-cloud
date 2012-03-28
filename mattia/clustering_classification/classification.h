@@ -11,7 +11,7 @@
 #include <Eigen/Dense>
 using namespace Eigen;
 
-#define MAX_NORNALIZE 50000000.0
+#define MAX_NORNALIZE 1//50000000.0
 
 template <typename PointT>
 class classification
