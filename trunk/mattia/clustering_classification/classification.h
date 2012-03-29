@@ -9,7 +9,7 @@
 #include <pcl/features/principal_curvatures.h>
 
 // I added these
-#include <pcl/common/common.h>
+//#include <pcl/common/common.h>
 #include <pcl/features/vfh.h>
 
 #include <Eigen/Dense>
