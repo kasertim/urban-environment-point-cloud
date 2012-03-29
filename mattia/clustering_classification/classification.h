@@ -8,6 +8,10 @@
 #include <pcl/features/normal_3d.h>
 #include <pcl/features/principal_curvatures.h>
 
+// I added these
+#include <pcl/common/common.h>
+#include <pcl/features/vfh.h>
+
 #include <Eigen/Dense>
 using namespace Eigen;
 
@@ -27,6 +31,9 @@ public:
 
     typedef typename pcl::search::Search<PointT> KdTree;
     typedef typename pcl::search::Search<PointT>::Ptr KdTreePtr;
+
+    typedef pcl::VFHSignature308 VFHType;
+    typedef pcl::PointCloud<VFHType> VFHCloudType;
 
     //typedef Matrix<float, 4, 1> Vector4f;
 
@@ -57,11 +64,16 @@ public:
         return eigModule_;
     }
 
+    std::vector<VFHCloudType::Ptr> getVFH() {
+        return vfh_ptrs_;
+    }
+
     std::vector<double> cardinality_;
     std::vector<double> intensity_;
     std::vector<double> norm_std_dev_;
     std::vector<double> curv_std_dev_;
     std::vector<double> eigModule_;
+    std::vector<VFHCloudType::Ptr> vfh_ptrs_;
 private:
     /*
      * Extract clusters cardinalities
@@ -152,9 +164,24 @@ private:
         }
     }
 
+    /*
+    * Calculate VFH
+    * */
+    void VFH() {
+        vfh_ptrs_.clear();
+        for (int i=0; i< clusters_.size(); ++i)
+        {
+            VFHCloudType::Ptr vfh_temp (new VFHCloudType);
+            vfher_.setIndices( clusters_[i] );
+            vfher_.compute (*vfh_temp);
+            vfh_ptrs_.push_back (vfh_temp);
+        }
+    }
+
     std::vector<pcl::IndicesPtr> clusters_;
     PointCloudPtr cloud_;
     std::vector< pcl::PointCloud<pcl::Normal>::Ptr > cluster_normals_;
+    pcl::VFHEstimation<PointT, pcl::Normal, VFHType> vfher_;
 };
 
 template <class PointT>
@@ -163,10 +190,18 @@ classification<PointT>::classification(PointCloudPtr cloud, std::vector<pcl::Ind
     clusters_ = clusters;
 
     // Normals and curvatures estimation
-    pcl::NormalEstimation<pcl::PointXYZI, pcl::Normal> ne;
-    pcl::search::KdTree<pcl::PointXYZI>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZI> ());
+    pcl::NormalEstimation<PointT, pcl::Normal> ne;
+    typename pcl::search::KdTree<PointT>::Ptr tree (new typename pcl::search::KdTree<PointT> ());
     ne.setInputCloud (cloud_);
     ne.setSearchMethod (tree);
+
+    // Set up the VFHer class
+    pcl::PointCloud<pcl::Normal>::Ptr normals_all (new pcl::PointCloud<pcl::Normal>);
+    ne.setKSearch(20);
+    ne.compute (*normals_all);
+    vfher_.setInputCloud (cloud_);
+    vfher_.setInputNormals (normals_all);
+    vfher_.setSearchMethod (tree);
 
     for (int i=0; i< clusters_.size(); i++)
     {
@@ -182,6 +217,7 @@ classification<PointT>::classification(PointCloudPtr cloud, std::vector<pcl::Ind
     intensity();
     normal_curv();
     EVD();
+    VFH();
 
 
 //     std::cout << "\nMaximum cardinality_: " << *(std::max_element(cardinality_.begin(),cardinality_.end()) ) << std::endl;
