@@ -8,6 +8,9 @@
 #include "svm-train.h"
 #include "classification.h"
 
+#include <pcl/features/vfh.h>
+#include <pcl/features/normal_3d.h>
+
 using namespace std;
 typedef pcl::PointXYZI PointType;
 
@@ -38,6 +41,32 @@ int main(int argc, char **argv) {
     if (pcl::io::loadPCDFile (argv[2], *good_cloud))
         return 0;
 
+//     pcl::PointCloud<pcl::VFHSignature308>::Ptr vfh_temp (new pcl::PointCloud<pcl::VFHSignature308>);
+//     std::vector<pcl::PointCloud<pcl::VFHSignature308>::Ptr> vfh_ptrs_;
+//     pcl::VFHEstimation<PointType, pcl::Normal, pcl::VFHSignature308> vfher_;
+//     typename pcl::search::KdTree<PointType>::Ptr tree (new typename pcl::search::KdTree<PointType> ());
+//     pcl::PointCloud<pcl::Normal>::Ptr normals_all (new pcl::PointCloud<pcl::Normal>);
+//     pcl::NormalEstimation<PointType, pcl::Normal> ne;
+//     
+//     ne.setInputCloud (good_cloud);
+//     ne.setSearchMethod (tree);
+//     ne.setKSearch(20);
+//     ne.compute (*normals_all);
+// 
+//     vfher_.setInputCloud (good_cloud);
+//     vfher_.setInputNormals (normals_all);
+//     vfher_.setSearchMethod (tree);
+//     //vfher_.setIndices( clusters_[i] );
+// //    vfher_.compute (*vfh_temp);
+//     vfh_temp.reset(new pcl::PointCloud<pcl::VFHSignature308>);
+//     vfh_temp->clear();
+//     vfh_temp->points.clear();
+//     vfh_ptrs_.push_back (vfh_temp);
+//     
+//     cout << "size " << vfh_ptrs_.size() << endl;
+//     cout << " and1 " << vfh_ptrs_[0]->size() << endl;
+//     cout<< " and2 "<< vfh_ptrs_[0]->points[0].histogram[0]<< endl;
+	    
     // Create the clusters
     cout << "Clustering noisy points...";
     rgA.setInputCloud (noise_cloud);
@@ -126,15 +155,21 @@ int main(int argc, char **argv) {
     for(int vfh_n=0; vfh_n < 308; vfh_n++){
       train.scaling.obj[4+1+vfh_n].index=4+1+vfh_n;
       
-      float sumA=0.0f;
+      float sumA=0.0f, sumB=0.0f;
+      int a_num=0, b_num=0;
       for(int jj=0; jj < featuresA.vfh_ptrs_.size(); jj++)
-	sumA += featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n];
-      sumA = sumA / featuresA.vfh_ptrs_.size();
+	if(featuresA.vfh_ptrs_[jj]->size() > 0){
+	  sumA += featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n];
+	  a_num++;
+	}
+      sumA = sumA / a_num;
 
-      float sumB=0.0f;
       for(int jj=0; jj < featuresB.vfh_ptrs_.size(); jj++)
-	sumB += featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n];
-      sumB = sumB / featuresB.vfh_ptrs_.size();
+	if(featuresB.vfh_ptrs_[jj]->size() > 0){
+	  sumB += featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n];
+	  b_num++;
+	}
+      sumB = sumB / b_num;
       
       if(sumA > sumB)
 	train.scaling.obj[4+1+vfh_n].value = sumA;
@@ -193,14 +228,15 @@ int main(int argc, char **argv) {
             j++;
         }
 
-        for (int vfh_n=0; vfh_n < 308; vfh_n++) {
-            if ( std::isfinite(featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
-                train.prob.x[i][j].index = 4+vfh_n+1;
-                train.prob.x[i][j].value =
-                    featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
-                j++;
+        if ( featuresA.vfh_ptrs_[i]->size() > 0 )
+            for (int vfh_n=0; vfh_n < 308; vfh_n++) {
+                if ( std::isfinite(featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
+                    train.prob.x[i][j].index = 4+vfh_n+1;
+                    train.prob.x[i][j].value =
+                        featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+                    j++;
+                }
             }
-        }
 
         train.prob.x[i][j].index = -1; // set last element of a sample
     }
@@ -246,14 +282,15 @@ int main(int argc, char **argv) {
             j++;
         }
 
-        for (int vfh_n=0; vfh_n < 308; vfh_n++) {
-            if ( std::isfinite(featuresB.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
-                train.prob.x[i][j].index = 4+vfh_n+1;
-                train.prob.x[i][j].value =
-                    featuresB.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
-                j++;
+        if ( featuresB.vfh_ptrs_[i]->size() > 0 )
+            for (int vfh_n=0; vfh_n < 308; vfh_n++) {
+                if ( std::isfinite(featuresB.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
+                    train.prob.x[i][j].index = 4+vfh_n+1;
+                    train.prob.x[i][j].value =
+                        featuresB.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+                    j++;
+                }
             }
-        }
         
         train.prob.x[i][j].index = -1; // set last element of a sample
     }
