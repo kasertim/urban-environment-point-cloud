@@ -171,6 +171,7 @@ private:
         vfh_ptrs_.clear();
         for (int i=0; i< clusters_.size(); ++i)
         {
+	  std::cout << "Cluster " << i << " with " << clusters_[i]->size() << " points." << std::endl;
             VFHCloudType::Ptr vfh_temp (new VFHCloudType);
             vfher_.setIndices( clusters_[i] );
             vfher_.compute (*vfh_temp);
