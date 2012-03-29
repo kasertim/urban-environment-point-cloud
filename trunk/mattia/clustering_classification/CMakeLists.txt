@@ -1,6 +1,6 @@
 project(clustering_classification)
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
-find_package(PCL 1.5 REQUIRED)
+find_package(PCL 1.6 REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
