@@ -171,8 +171,15 @@ private:
         vfh_ptrs_.clear();
         for (int i=0; i< clusters_.size(); ++i)
         {
-	  std::cout << "Cluster " << i << " with " << clusters_[i]->size() << " points." << std::endl;
-            VFHCloudType::Ptr vfh_temp (new VFHCloudType);
+	  VFHCloudType::Ptr vfh_temp (new VFHCloudType);
+	  //std::cout << "Cluster " << i << " with " << clusters_[i]->size() << " points." << std::endl;
+	  if(clusters_[i]->size() > 1000000){
+	    vfh_temp.reset(new VFHCloudType);
+	    //vfh_temp->points.clear();
+	    vfh_ptrs_.push_back (vfh_temp);
+	    continue;
+	  }
+           // VFHCloudType::Ptr vfh_temp (new VFHCloudType);
             vfher_.setIndices( clusters_[i] );
             vfher_.compute (*vfh_temp);
             vfh_ptrs_.push_back (vfh_temp);
