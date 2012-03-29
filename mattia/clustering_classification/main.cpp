@@ -43,15 +43,13 @@ int main(int argc, char **argv) {
     rgA.setInputCloud (noise_cloud);
     rgA.setGrowingDistance(atof(argv[3]));
     rgA.cluster (&clusteredNoisyIndices);
-    cout << "done." << endl;
-    cout << "noisy clusters? " <<clusteredNoisyIndices.size()<<endl;
-
+    cout << "done. Found: " << clusteredNoisyIndices.size()<< " clusters." << endl;
+	
     cout << "Clustering good points...";
     rgB.setInputCloud (good_cloud);
     rgB.setGrowingDistance(atof(argv[3]));
     rgB.cluster (&clusteredGoodIndices);
-    cout << "done." << endl;
-    cout << "good clusters? " <<clusteredGoodIndices.size()<<endl;
+    cout << "done. Found: " << clusteredGoodIndices.size()<< " clusters."<< endl;
 
     // Extracting features from clusters
     cout << "Extracting point features...";
@@ -77,7 +75,7 @@ int main(int argc, char **argv) {
     // Generating the vector for SVM training
     SvmTrain train;
     
-    train.nFeatures=5; // n of features for a point
+    train.nFeatures= 5 + 308; // n of features for a point
     train.prob.l = clusteredNoisyIndices.size() + clusteredGoodIndices.size(); // n of elements/points
     train.prob.y = Malloc(double,train.prob.l);
     train.prob.x = Malloc(struct svm_node *,train.prob.l);
@@ -88,6 +86,7 @@ int main(int argc, char **argv) {
 //     train.nr_fold = 8; // is how many sets to split your input data
     
     // saving the scaling factors
+    cout << "Scaling the features...";
     train.scaling.obj[0].index=0;
     if ( *( std::max_element( featuresA.cardinality_.begin(), featuresA.cardinality_.end() ) ) >
          *( std::max_element( featuresB.cardinality_.begin(), featuresB.cardinality_.end() ) ) )
@@ -123,7 +122,28 @@ int main(int argc, char **argv) {
     else
         train.scaling.obj[4].value=*( std::max_element( featuresB.eigModule_.begin(), featuresB.eigModule_.end() ) );
     
-    train.scaling.obj[5].index=-1;
+    // Finding the maximum values for 308 elements
+    for(int vfh_n=0; vfh_n < 308; vfh_n++){
+      train.scaling.obj[4+1+vfh_n].index=4+1+vfh_n;
+      
+      float sumA=0.0f;
+      for(int jj=0; jj < featuresA.vfh_ptrs_.size(); jj++)
+	sumA += featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n];
+      sumA = sumA / featuresA.vfh_ptrs_.size();
+
+      float sumB=0.0f;
+      for(int jj=0; jj < featuresB.vfh_ptrs_.size(); jj++)
+	sumB += featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n];
+      sumB = sumB / featuresB.vfh_ptrs_.size();
+      
+      if(sumA > sumB)
+	train.scaling.obj[4+1+vfh_n].value = sumA;
+      else
+	train.scaling.obj[4+1+vfh_n].value = sumB;
+    }
+    
+    train.scaling.obj[train.nFeatures + 1].index=-1;
+    cout << "done." << endl;
     // display the maximum
 // 	cout << train.scaling.obj[0].value << endl;
 // 	cout << train.scaling.obj[1].value << endl;
@@ -173,6 +193,15 @@ int main(int argc, char **argv) {
             j++;
         }
 
+        for (int vfh_n=0; vfh_n < 308; vfh_n++) {
+            if ( std::isfinite(featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
+                train.prob.x[i][j].index = 4+vfh_n+1;
+                train.prob.x[i][j].value =
+                    featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+                j++;
+            }
+        }
+
         train.prob.x[i][j].index = -1; // set last element of a sample
     }
 
@@ -217,6 +246,15 @@ int main(int argc, char **argv) {
             j++;
         }
 
+        for (int vfh_n=0; vfh_n < 308; vfh_n++) {
+            if ( std::isfinite(featuresB.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
+                train.prob.x[i][j].index = 4+vfh_n+1;
+                train.prob.x[i][j].value =
+                    featuresB.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+                j++;
+            }
+        }
+        
         train.prob.x[i][j].index = -1; // set last element of a sample
     }
     cout << "done" << endl;
