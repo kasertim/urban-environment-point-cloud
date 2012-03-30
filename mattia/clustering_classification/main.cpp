@@ -14,6 +14,13 @@
 using namespace std;
 typedef pcl::PointXYZI PointType;
 
+inline float module(float a){
+  if(a>0)
+    return a;
+  else
+    return -a;
+}
+
 int main(int argc, char **argv) {
     pcl::PointCloud<PointType>::Ptr noise_cloud (new pcl::PointCloud<PointType>);
     pcl::PointCloud<PointType>::Ptr good_cloud (new pcl::PointCloud<PointType>);
@@ -155,29 +162,27 @@ int main(int argc, char **argv) {
     for(int vfh_n=0; vfh_n < 308; vfh_n++){
       train.scaling.obj[4+1+vfh_n].index=4+1+vfh_n;
       
-      float sumA=0.0f, sumB=0.0f;
-      int a_num=0, b_num=0;
+      float maxA=0.0f, maxB=0.0f;
+      //int a_num=0, b_num=0;
       for(int jj=0; jj < featuresA.vfh_ptrs_.size(); jj++)
 	if(featuresA.vfh_ptrs_[jj]->size() > 0){
-	  sumA += featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n];
-	  a_num++;
+	  if(module(featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n])>maxA)
+	    maxA = module(featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n]);
 	}
-      sumA = sumA / a_num;
 
       for(int jj=0; jj < featuresB.vfh_ptrs_.size(); jj++)
 	if(featuresB.vfh_ptrs_[jj]->size() > 0){
-	  sumB += featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n];
-	  b_num++;
+	  if(module(featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n])>maxA)
+	    maxA = module(featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n]);
 	}
-      sumB = sumB / b_num;
       
-      if(sumA > sumB)
-	train.scaling.obj[4+1+vfh_n].value = sumA;
+      if(maxA > maxB)
+	train.scaling.obj[4+1+vfh_n].value = maxA;
       else
-	train.scaling.obj[4+1+vfh_n].value = sumB;
+	train.scaling.obj[4+1+vfh_n].value = maxB;
     }
     
-    train.scaling.obj[train.nFeatures + 1].index=-1;
+    train.scaling.obj[train.nFeatures].index=-1;
     cout << "done." << endl;
     // display the maximum
 // 	cout << train.scaling.obj[0].value << endl;
@@ -232,10 +237,15 @@ int main(int argc, char **argv) {
             for (int vfh_n=0; vfh_n < 308; vfh_n++) {
                 if ( std::isfinite(featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
                     train.prob.x[i][j].index = 4+vfh_n+1;
-                    train.prob.x[i][j].value =
-                        featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+                    if (featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] != 0)
+                        train.prob.x[i][j].value =
+                            featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+                    else
+                        train.prob.x[i][j].value =
+                            featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n];		
                     j++;
                 }
+                
             }
 
         train.prob.x[i][j].index = -1; // set last element of a sample
@@ -282,16 +292,19 @@ int main(int argc, char **argv) {
             j++;
         }
 
-        if ( featuresB.vfh_ptrs_[i]->size() > 0 )
+        if ( featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->size() > 0 )
             for (int vfh_n=0; vfh_n < 308; vfh_n++) {
-                if ( std::isfinite(featuresB.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
+                if ( std::isfinite(featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n]) ) {
                     train.prob.x[i][j].index = 4+vfh_n+1;
-                    train.prob.x[i][j].value =
-                        featuresB.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+                    if (featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n] != 0)
+                        train.prob.x[i][j].value =
+                            featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+                    else
+                        train.prob.x[i][j].value =
+                            featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n];
                     j++;
                 }
             }
-        
         train.prob.x[i][j].index = -1; // set last element of a sample
     }
     cout << "done" << endl;
