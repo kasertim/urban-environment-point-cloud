@@ -6,18 +6,18 @@ BuildDirs=/media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_class
 CMakeDir=/usr/share/cmake-2.8/Modules
 Current CMake Binary=file:///usr/bin/cmake
 CurrentBuildDir=file:///media/DATA/TRCS/urban-environment-point-cloud/mattia/clustering_classification/build
-CurrentBuildType=Debug
+CurrentBuildType=debug
 CurrentInstallDir=file:///usr/local
 Extra Arguments=
 ProjectRootRelative=./
 
 [Launch]
-Launch Configurations=Launch Configuration 0
+Launch Configurations=Launch Configuration 0,Launch Configuration 1
 
 [Launch][Launch Configuration 0]
 Configured Launch Modes=execute
 Configured Launchers=nativeAppLauncher
-Name=New Native Application Configuration
+Name=clust_class
 Type=Native Application
 
 [Launch][Launch Configuration 0][Data]
@@ -28,6 +28,24 @@ EnvironmentGroup=default
 Executable=
 External Terminal=konsole --noclose --workdir %workdir -e %exe
 Project Target=clustering_classification,clustering_classification
+Use External Terminal=false
+Working Directory=
+isExecutable=false
+
+[Launch][Launch Configuration 1]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=test_predictor
+Type=Native Application
+
+[Launch][Launch Configuration 1][Data]
+Arguments=cropped_ghosts.pcd output_delete55.pcd 50
+Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
+Dependency Action=Nothing
+EnvironmentGroup=default
+Executable=
+External Terminal=konsole --noclose --workdir %workdir -e %exe
+Project Target=clustering_classification,test_predictor
 Use External Terminal=false
 Working Directory=
 isExecutable=false

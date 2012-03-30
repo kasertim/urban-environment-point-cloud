@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     cout << "done." << endl;
 
     // Prediction
-    int nFeatures = 5;
+    int nFeatures = 5+308;
     SvmPredict pred;
     pred.loadModel("output.model");
     pred.input.l = clusteredIndices.size(); // n of elements/points
@@ -104,6 +104,21 @@ int main(int argc, char **argv) {
             pred.input.x[i][j].value = features.eigModule_[i] / pred.scaling.obj[4].value;
             j++;
         }
+        
+        if ( features.vfh_ptrs_[i]->size() > 0 )
+            for (int vfh_n=0; vfh_n < 308; vfh_n++) {
+                if ( std::isfinite(features.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
+                    pred.input.x[i][j].index = 4+vfh_n+1;
+                    if (features.vfh_ptrs_[i]->points[0].histogram[vfh_n] != 0)
+                        pred.input.x[i][j].value =
+                            features.vfh_ptrs_[i]->points[0].histogram[vfh_n] / pred.scaling.obj[4+vfh_n+1].value;
+                    else
+                        pred.input.x[i][j].value =
+                            features.vfh_ptrs_[i]->points[0].histogram[vfh_n];		
+                    j++;
+                }
+                
+            }
 
         pred.input.x[i][j].index = -1; // set last element of a sample
     }
