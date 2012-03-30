@@ -2868,13 +2868,6 @@ svm_model *svm_load_model(const char *model_file_name)
                 idx = strtok(NULL, ":");
                 //printf("%d e %f\n",model->scaling[ii-1].index,model->scaling[ii-1].value);
             }
-
-// 		printf("%d e %f\n",model->scaling[0].index,model->scaling[0].value);
-// 		printf("%d e %f\n",model->scaling[1].index,model->scaling[1].value);
-// 		printf("%d e %f\n",model->scaling[2].index,model->scaling[2].value);
-// 		printf("%d e %f\n",model->scaling[3].index,model->scaling[3].value);
-// 		printf("%d e %f\n",model->scaling[4].index,model->scaling[4].value);
-
         }
         else if (strcmp(cmd,"SV")==0)
         {
