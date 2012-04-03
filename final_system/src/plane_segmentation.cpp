@@ -35,11 +35,66 @@
  *
  */
 
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/extract_indices.h>
+
+// TODO: This step gets increasingly slower for larger data sets, maybe use an octree/voxelgrid to downsample temporarily
+// TODO: Check the model coefficients that are output after each segmentation and make sure you get rid of grounds (or walls) only
+// TODO: The min_segment_size parameter needs to be altered more adaptively
+// TODO: Maybe use different min_segment_size parameters: for walls use higher values than for ground planes
+
 /** \brief Segments ground and wall planes from the input cloud.
- * \param[in] cloud_in A pointer to the input point cloud.
- * \param[in/out] global_data A struct holding information on the full point cloud and global input parameters.
- */
+  * \param[in] cloud_in A pointer to the input point cloud.
+  * \param[in/out] global_data A struct holding information on the full point cloud and global input parameters.
+  */
 void
-applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data)
+applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in,
+                        GlobalData &global_data)
 {
+  // Input parameters for this section:
+  int min_segment_size = global_data.cardinality / 10; // Maybe make this dependent off a global input parameter for cluttering
+  float distance_threshold = 0.1 * global_data.scale; // 10 centimeters of noise allowed
+
+  // A RANSAC segmentation class
+  pcl::SACSegmentation<PointType> sacs;
+  sacs.setInputCloud (cloud_in);
+  sacs.setMethodType (pcl::SAC_RANSAC);
+  sacs.setModelType (pcl::SACMODEL_PLANE);
+  sacs.setOptimizeCoefficients (true);
+  sacs.setDistanceThreshold (distance_threshold);
+  sacs.setMaxIterations (100);
+
+  // An ExtractIndices class for inverting indices
+  pcl::ExtractIndices<PointType> ei;
+  ei.setInputCloud (cloud_in);
+  ei.setNegative (true);
+
+  // Variables used
+  pcl::ModelCoefficients coefficients;
+  pcl::PointIndices current_plane;
+  pcl::IndicesPtr removed_points (new std::vector<int>);
+  pcl::IndicesPtr remaining_points (new std::vector<int>);
+
+  // First segmentation to enter loop properly
+  sacs.segment (current_plane, coefficients);
+
+  // Loop while the found plane is large enough
+  while (current_plane.indices.size () > min_segment_size)
+  {
+    // Concatenate all planes into removed_points
+    (*removed_points).insert ((*removed_points).end (), current_plane.indices.begin (), current_plane.indices.end ());
+
+    // Extract all indices *except* the ones of the planes
+    remaining_points->clear ();
+    ei.setIndices (removed_points);
+    ei.filter (*remaining_points);
+
+    // Re-run segmentation on the remaining points
+    sacs.setIndices (remaining_points);
+    sacs.segment (current_plane, coefficients);
+  }
+
+  // Extract all indices *except* the ones of the planes for output
+  ei.setIndices (removed_points);
+  ei.filter (*global_data.indices);
 }

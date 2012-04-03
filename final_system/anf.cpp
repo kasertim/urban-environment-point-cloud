@@ -52,22 +52,20 @@ typedef pcl::PointXYZI PointType;
 #include "src/noise_filtering.cpp"
 
 void
-compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType> &cloud_out, float cagg)
+compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType> &cloud_out, float scale)
 {
   pcl::console::TicToc tt;
-  pcl::console::print_highlight (stderr, "Computing (1/6): ");
-  pcl::console::print_value (stderr, "Global information ");
+  pcl::console::print_highlight (stderr, "Computing (1/6): Global information ");
   tt.tic ();
 
   GlobalData global_data;
   gatherGlobalInformation (cloud_in, global_data);
-  global_data.cagg = cagg; // Global input parameters are also stored in this struct
+  global_data.scale = scale;
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight (stderr, "Computing (2/6): ");
-  pcl::console::print_value (stderr, "Plane segmentation ");
+  pcl::console::print_highlight (stderr, "Computing (2/6): Plane segmentation ");
   tt.tic ();
 
   applyPlaneSegmentation (cloud_in, global_data);
@@ -75,8 +73,9 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight (stderr, "Computing (3/6): ");
-  pcl::console::print_value (stderr, "Object clustering ");
+  pcl::console::print_info (stderr, "Remaining points to work on: ");
+  pcl::console::print_value (stderr, "%d\n", global_data.indices->size ());
+  pcl::console::print_highlight (stderr, "Computing (3/6): Object clustering ");
   tt.tic ();
 
   boost::shared_ptr<std::vector<ClusterData> > clusters_data (new std::vector<ClusterData>);
@@ -85,8 +84,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight (stderr, "Computing (4/6): ");
-  pcl::console::print_value (stderr, "Cluster information ");
+  pcl::console::print_highlight (stderr, "Computing (4/6): Cluster information ");
   tt.tic ();
 
   gatherClusterInformation (cloud_in, global_data, clusters_data);
@@ -94,8 +92,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight (stderr, "Computing (5/6): ");
-  pcl::console::print_value (stderr, "Object classification ");
+  pcl::console::print_highlight (stderr, "Computing (5/6): Object classification ");
   tt.tic ();
 
   applyObjectClassification (cloud_in, global_data, clusters_data);
@@ -103,8 +100,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight (stderr, "Computing (6/6): ");
-  pcl::console::print_value (stderr, "Noise filtering ");
+  pcl::console::print_highlight (stderr, "Computing (6/6): Noise filtering ");
   tt.tic ();
 
   applyNoiseFiltering (cloud_in, global_data, clusters_data, cloud_out);
@@ -153,8 +149,7 @@ printHelp (char **argv)
 {
   pcl::console::print_error ("Correct syntax: ");
   pcl::console::print_value ("%s input.pcd output.pcd <options>\n", argv[0]);
-  pcl::console::print_info ("Options:\n -cagg x    x = the aggressiveness of the clustering step\n");
-  pcl::console::print_info ("               (0.0 is prone to under segmentation, 1.0 is prone to over segmentation, default = 0.5)\n");
+  pcl::console::print_info ("Options:\n -scale x   x = the distance of one meter\n");
 }
 
 int
@@ -171,8 +166,8 @@ main (int argc, char** argv)
   }
 
   // Parse other arguments
-  float cagg = 0.5f;
-  pcl::console::parse_argument (argc, argv, "-cagg", cagg);
+  float scale = 1000.0;
+  pcl::console::parse_argument (argc, argv, "-scale", scale);
 
   // Load input cloud
   pcl::PointCloud<PointType>::Ptr cloud_in (new pcl::PointCloud<PointType>);
@@ -181,7 +176,7 @@ main (int argc, char** argv)
 
   // Computation
   pcl::PointCloud<PointType> cloud_out;
-  compute (cloud_in, cloud_out, cagg);
+  compute (cloud_in, cloud_out, scale);
 
   // Save output cloud
   saveCloud (argv[arg_indices[1]], cloud_out);

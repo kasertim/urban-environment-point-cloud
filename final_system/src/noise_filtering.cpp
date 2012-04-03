@@ -38,30 +38,29 @@
 #include <pcl/filters/extract_indices.h>
 
 /** \brief This will be a simple ExtractIndices application for now, but for more elaborate noise it could mean smoothing or stuff like that.
- * \param[in] cloud_in A pointer to the input point cloud.
- * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
- * \param[in] clusters_data An array of information holders for each cluster
- * \param[out] cloud_out The output point cloud, with the noise filtered.
- */
+  * \param[in] cloud_in A pointer to the input point cloud.
+  * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
+  * \param[in] clusters_data An array of information holders for each cluster
+  * \param[out] cloud_out The output point cloud, with the noise filtered.
+  */
 void
-applyNoiseFiltering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data,
-                     boost::shared_ptr<std::vector<ClusterData> > clusters_data, pcl::PointCloud<PointType> &cloud_out)
+applyNoiseFiltering (const pcl::PointCloud<PointType>::Ptr cloud_in,
+                     GlobalData global_data,
+                     boost::shared_ptr<std::vector<ClusterData> > clusters_data,
+                     pcl::PointCloud<PointType> &cloud_out)
 {
-  // Set up the indices array
-  global_data.indices->resize (cloud_in->points.size ());
-  size_t gi_it = 0;
+  // Set up the noise index array
+  pcl::IndicesPtr noise_indices (new std::vector<int>);
 
-  // Fill in the indices array with all trees and ghosts
+  // Fill in the index array with all trees and ghosts
   for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
     if ((*clusters_data)[c_it].is_tree || (*clusters_data)[c_it].is_ghost)
-      for (size_t ci_it = 0; ci_it < (*clusters_data)[c_it].indices->size (); ++ci_it)
-        (*global_data.indices)[gi_it++] = (*(*clusters_data)[c_it].indices)[ci_it];
-  global_data.indices->resize (gi_it);
+      noise_indices->insert (noise_indices->end (), (*clusters_data)[c_it].indices->begin (), (*clusters_data)[c_it].indices->end ());
 
   // Remove the corresponding points from the cloud
   pcl::ExtractIndices<PointType> ei;
   ei.setInputCloud (cloud_in);
-  ei.setIndices (global_data.indices);
+  ei.setIndices (noise_indices);
   ei.setNegative (true);
   ei.filter (cloud_out);
 }
