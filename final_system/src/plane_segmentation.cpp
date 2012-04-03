@@ -36,11 +36,10 @@
  */
 
 /** \brief Segments ground and wall planes from the input cloud.
-  * \param[in] cloud_in A pointer to the input point cloud.
-  * \param[in] gi A struct storing information about the input point cloud and global input parameters.
-  * \param[out] indices_of_interest The indices into cloud_in that are pointing to the remaining points after segmentation.
-  */
+ * \param[in] cloud_in A pointer to the input point cloud.
+ * \param[in/out] global_data A struct holding information on the full point cloud and global input parameters.
+ */
 void
-applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalInformation gi, pcl::PointIndicesPtr indices_of_interest)
+applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data)
 {
 }

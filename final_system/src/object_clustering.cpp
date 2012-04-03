@@ -35,13 +35,27 @@
  *
  */
 
-/** \brief Divides the points indexed by indices_of_interest into several clusters, each cluster likely to contain exactly one object.
-  * \param[in] cloud_in A pointer to the input point cloud.
-  * \param[in] gi A struct storing information about the input point cloud and global input parameters.
-  * \param[in] indices_of_interest The indices into cloud_in that are in need of clustering.
-  * \param[out] clusters_of_indices An array of indices, each indices-set indexes one cluster.
-  */
+// Information holder for each cluster
+struct ClusterData
+{
+  pcl::IndicesPtr indices;
+  float EVD;
+  float etc;
+  bool is_tree;
+  bool is_ghost;
+  ClusterData () :
+      indices (new std::vector<int>)
+  {
+  }
+};
+
+/** \brief Divides the remaining points into several clusters, each cluster likely to contain exactly one object.
+ * \param[in] cloud_in A pointer to the input point cloud.
+ * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
+ * \param[out] clusters_data An array of information holders for each cluster
+ */
 void
-applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalInformation gi, pcl::PointIndicesPtr indices_of_interest, boost::shared_ptr<std::vector<pcl::PointIndices> > clusters_of_indices)
+applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data,
+                       boost::shared_ptr<std::vector<ClusterData> > clusters_data)
 {
 }
