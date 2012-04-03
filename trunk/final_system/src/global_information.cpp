@@ -35,38 +35,44 @@
  *
  */
 
-struct GlobalInformation
+// Information holder for the full point cloud
+struct GlobalData
 {
+  pcl::IndicesPtr indices;
   float x_min, x_max, y_min, y_max, z_min, z_max, i_min, i_max;
   float cagg;
+  GlobalData () :
+      indices (new std::vector<int>)
+  {
+    x_min = y_min = z_min = i_min = std::numeric_limits<float>::max ();
+    x_max = y_max = z_max = i_max = std::numeric_limits<float>::min ();
+  }
 };
 
 /** \brief Gathers information about the entire input cloud, useful for the other pipeline stages: automation/normalization of input parameters.
-  * \param[in] cloud_in A pointer to the input point cloud.
-  * \param[out] gi The struct storing the information.
-  */
+ * \param[in] cloud_in A pointer to the input point cloud.
+ * \param[out] global_data A struct holding information on the full point cloud and global input parameters.
+ */
 void
-gatherGlobalInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalInformation &gi)
+gatherGlobalInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data)
 {
-  gi.x_min = gi.y_min = gi.z_min = gi.i_min = std::numeric_limits<float>::max ();
-  gi.x_max = gi.y_max = gi.z_max = gi.i_max = std::numeric_limits<float>::min ();
   for (int p_it = 0; p_it < static_cast<int> (cloud_in->points.size ()); ++p_it)
   {
-    if (cloud_in->points[p_it].x < gi.x_min)
-      gi.x_min = cloud_in->points[p_it].x;
-    if (cloud_in->points[p_it].x > gi.x_max)
-      gi.x_max = cloud_in->points[p_it].x;
-    if (cloud_in->points[p_it].y < gi.y_min)
-      gi.y_min = cloud_in->points[p_it].y;
-    if (cloud_in->points[p_it].y > gi.y_max)
-      gi.y_max = cloud_in->points[p_it].y;
-    if (cloud_in->points[p_it].z < gi.z_min)
-      gi.z_min = cloud_in->points[p_it].z;
-    if (cloud_in->points[p_it].z > gi.z_max)
-      gi.z_max = cloud_in->points[p_it].z;
-    if (cloud_in->points[p_it].intensity < gi.i_min)
-      gi.i_min = cloud_in->points[p_it].intensity;
-    if (cloud_in->points[p_it].intensity > gi.i_max)
-      gi.i_max = cloud_in->points[p_it].intensity;
+    if (cloud_in->points[p_it].x < global_data.x_min)
+      global_data.x_min = cloud_in->points[p_it].x;
+    if (cloud_in->points[p_it].x > global_data.x_max)
+      global_data.x_max = cloud_in->points[p_it].x;
+    if (cloud_in->points[p_it].y < global_data.y_min)
+      global_data.y_min = cloud_in->points[p_it].y;
+    if (cloud_in->points[p_it].y > global_data.y_max)
+      global_data.y_max = cloud_in->points[p_it].y;
+    if (cloud_in->points[p_it].z < global_data.z_min)
+      global_data.z_min = cloud_in->points[p_it].z;
+    if (cloud_in->points[p_it].z > global_data.z_max)
+      global_data.z_max = cloud_in->points[p_it].z;
+    if (cloud_in->points[p_it].intensity < global_data.i_min)
+      global_data.i_min = cloud_in->points[p_it].intensity;
+    if (cloud_in->points[p_it].intensity > global_data.i_max)
+      global_data.i_max = cloud_in->points[p_it].intensity;
   }
 }

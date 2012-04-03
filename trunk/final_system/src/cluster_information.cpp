@@ -35,22 +35,13 @@
  *
  */
 
-struct ClusterInformation
-{
-  float cardinality;
-  float EVD;
-  float etc;
-  bool is_tree;
-  bool is_ghost;
-};
-
-/** \brief Estimates features for each cluster, required for the machine learner.
-  * \param[in] cloud_in A pointer to the input point cloud.
-  * \param[in] gi A struct storing information about the input point cloud and global input parameters.
-  * \param[in] clusters_of_indices An array of indices, each indices-set indexes one cluster.
-  * \param[out] ci An array of information holders, each information holder holds information for one cluster using a ClusterInformation struct.
-  */
+/** \brief Estimates features for each cluster, required for classifying each cluster.
+ * \param[in] cloud_in A pointer to the input point cloud.
+ * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
+ * \param[in/out] clusters_data An array of information holders for each cluster
+ */
 void
-gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalInformation gi, boost::shared_ptr<std::vector<pcl::PointIndices> > clusters_of_indices, boost::shared_ptr<std::vector<ClusterInformation> > ci)
+gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data,
+                          boost::shared_ptr<std::vector<ClusterData> > clusters_data)
 {
 }

@@ -40,6 +40,7 @@
 #include <pcl/console/parse.h>
 #include <pcl/console/time.h>
 
+// The point type used
 typedef pcl::PointXYZI PointType;
 
 // The computation pipeline stages
@@ -54,61 +55,59 @@ void
 compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType> &cloud_out, float cagg)
 {
   pcl::console::TicToc tt;
-  pcl::console::print_highlight ("Computing (1/6): ");
-  pcl::console::print_value ("Global information ");
+  pcl::console::print_highlight (stderr, "Computing (1/6): ");
+  pcl::console::print_value (stderr, "Global information ");
   tt.tic ();
 
-  GlobalInformation gi;
-  gatherGlobalInformation (cloud_in, gi);
-  gi.cagg = cagg; // Global input parameters are also stored in this struct
+  GlobalData global_data;
+  gatherGlobalInformation (cloud_in, global_data);
+  global_data.cagg = cagg; // Global input parameters are also stored in this struct
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight ("Computing (2/6): ");
-  pcl::console::print_value ("Plane segmentation ");
+  pcl::console::print_highlight (stderr, "Computing (2/6): ");
+  pcl::console::print_value (stderr, "Plane segmentation ");
   tt.tic ();
 
-  pcl::PointIndicesPtr indices_of_interest (new pcl::PointIndices);
-  applyPlaneSegmentation (cloud_in, gi, indices_of_interest);
+  applyPlaneSegmentation (cloud_in, global_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight ("Computing (3/6): ");
-  pcl::console::print_value ("Object clustering ");
+  pcl::console::print_highlight (stderr, "Computing (3/6): ");
+  pcl::console::print_value (stderr, "Object clustering ");
   tt.tic ();
 
-  boost::shared_ptr<std::vector<pcl::PointIndices> > clusters_of_indices (new std::vector<pcl::PointIndices>);
-  applyObjectClustering (cloud_in, gi, indices_of_interest, clusters_of_indices);
+  boost::shared_ptr<std::vector<ClusterData> > clusters_data (new std::vector<ClusterData>);
+  applyObjectClustering (cloud_in, global_data, clusters_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight ("Computing (4/6): ");
-  pcl::console::print_value ("Cluster information ");
+  pcl::console::print_highlight (stderr, "Computing (4/6): ");
+  pcl::console::print_value (stderr, "Cluster information ");
   tt.tic ();
 
-  boost::shared_ptr<std::vector<ClusterInformation> > ci (new std::vector<ClusterInformation>);
-  gatherClusterInformation (cloud_in, gi, clusters_of_indices, ci);
+  gatherClusterInformation (cloud_in, global_data, clusters_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight ("Computing (5/6): ");
-  pcl::console::print_value ("Object classification ");
+  pcl::console::print_highlight (stderr, "Computing (5/6): ");
+  pcl::console::print_value (stderr, "Object classification ");
   tt.tic ();
 
-  applyObjectClassification (cloud_in, gi, clusters_of_indices, ci);
+  applyObjectClassification (cloud_in, global_data, clusters_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
-  pcl::console::print_highlight ("Computing (6/6): ");
-  pcl::console::print_value ("Noise filtering ");
+  pcl::console::print_highlight (stderr, "Computing (6/6): ");
+  pcl::console::print_value (stderr, "Noise filtering ");
   tt.tic ();
 
-  applyNoiseFiltering (cloud_in, gi, clusters_of_indices, ci, cloud_out);
+  applyNoiseFiltering (cloud_in, global_data, clusters_data, cloud_out);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
@@ -119,8 +118,8 @@ void
 saveCloud (const std::string filename, const pcl::PointCloud<PointType> cloud)
 {
   pcl::console::TicToc tt;
-  pcl::console::print_highlight ("Saving ");
-  pcl::console::print_value ("%s ", filename.c_str ());
+  pcl::console::print_highlight (stderr, "Saving ");
+  pcl::console::print_value (stderr, "%s ", filename.c_str ());
   tt.tic ();
   pcl::io::savePCDFileBinary (filename, cloud);
   pcl::console::print_info ("[done, ");
@@ -134,8 +133,8 @@ bool
 loadCloud (const std::string filename, pcl::PointCloud<PointType>::Ptr &cloud)
 {
   pcl::console::TicToc tt;
-  pcl::console::print_highlight ("Loading ");
-  pcl::console::print_value ("%s ", filename.c_str ());
+  pcl::console::print_highlight (stderr, "Loading ");
+  pcl::console::print_value (stderr, "%s ", filename.c_str ());
   tt.tic ();
   if (pcl::io::loadPCDFile<PointType> (filename, *cloud) < 0)
     return (false);
