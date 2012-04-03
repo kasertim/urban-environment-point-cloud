@@ -36,12 +36,13 @@
  */
 
 /** \brief Estimates features for each cluster, required for classifying each cluster.
- * \param[in] cloud_in A pointer to the input point cloud.
- * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
- * \param[in/out] clusters_data An array of information holders for each cluster
- */
+  * \param[in] cloud_in A pointer to the input point cloud.
+  * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
+  * \param[in/out] clusters_data An array of information holders for each cluster
+  */
 void
-gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data,
-                          boost::shared_ptr<std::vector<ClusterData> > clusters_data)
+gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
+                          GlobalData global_data,
+                          boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
 {
 }

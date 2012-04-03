@@ -36,12 +36,13 @@
  */
 
 /** \brief The machine learning classifier, results are stored in the ClusterData structs.
- * \param[in] cloud_in A pointer to the input point cloud.
- * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
- * \param[in/out] clusters_data An array of information holders for each cluster
- */
+  * \param[in] cloud_in A pointer to the input point cloud.
+  * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
+  * \param[in/out] clusters_data An array of information holders for each cluster
+  */
 void
-applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data,
-                           boost::shared_ptr<std::vector<ClusterData> > clusters_data)
+applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
+                           GlobalData global_data,
+                           boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
 {
 }
