@@ -45,4 +45,10 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
                           GlobalData global_data,
                           boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
 {
+  // Passthrough example: randomly set up features[0]
+  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
+  {
+    (*clusters_data)[c_it].features.resize (1);
+    (*clusters_data)[c_it].features[0] = rand () / (RAND_MAX + 1.0f);
+  }
 }

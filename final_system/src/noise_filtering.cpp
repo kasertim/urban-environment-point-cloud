@@ -37,6 +37,8 @@
 
 #include <pcl/filters/extract_indices.h>
 
+// TODO: Instead of removing the points from the cloud, make the noise points NaN in order to keep structure
+
 /** \brief This will be a simple ExtractIndices application for now, but for more elaborate noise it could mean smoothing or stuff like that.
   * \param[in] cloud_in A pointer to the input point cloud.
   * \param[in] global_data A struct holding information on the full point cloud and global input parameters.

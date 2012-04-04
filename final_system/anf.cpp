@@ -43,6 +43,39 @@
 // The point type used
 typedef pcl::PointXYZI PointType;
 
+// Information holder for the full point cloud
+struct GlobalData
+{
+  pcl::IndicesPtr indices;
+  float x_min, y_min, z_min, i_min, x_size, y_size, z_size, i_size;
+  float density, scale;
+  int cardinality;
+
+  GlobalData () :
+    indices (new std::vector<int>),
+    x_min (std::numeric_limits<float>::max ()), y_min (std::numeric_limits<float>::max ()),
+    z_min (std::numeric_limits<float>::max ()), i_min (std::numeric_limits<float>::max ()),
+    x_size (std::numeric_limits<float>::min ()), y_size (std::numeric_limits<float>::min ()),
+    z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
+    density (), scale (), cardinality ()
+  {}
+};
+
+// Information holder for each cluster
+struct ClusterData
+{
+  pcl::IndicesPtr indices;
+  std::vector<float> features;
+  bool is_tree;
+  bool is_ghost;
+
+  ClusterData () :
+    indices (new std::vector<int>),
+    features (),
+    is_tree (false), is_ghost (false)
+  {}
+};
+
 // The computation pipeline stages
 #include "src/global_information.cpp"
 #include "src/plane_segmentation.cpp"
@@ -84,6 +117,8 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
+  pcl::console::print_info (stderr, "Number of clusters found: ");
+  pcl::console::print_value (stderr, "%d\n", clusters_data->size ());
   pcl::console::print_highlight (stderr, "Computing (4/6): Cluster information ");
   tt.tic ();
 
@@ -166,7 +201,7 @@ main (int argc, char** argv)
   }
 
   // Parse other arguments
-  float scale = 1000.0;
+  float scale = 1500.0;
   pcl::console::parse_argument (argc, argv, "-scale", scale);
 
   // Load input cloud

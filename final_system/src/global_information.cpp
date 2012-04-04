@@ -35,41 +35,7 @@
  *
  */
 
-// Information holder for the full point cloud
-struct GlobalData
-{
-  pcl::IndicesPtr indices;
-  float x_min, y_min, z_min, i_min, x_size, y_size, z_size, i_size, density, scale;
-  int cardinality;
-  GlobalData () :
-      indices (new std::vector<int>),
-      x_min (std::numeric_limits<float>::max ()),
-      y_min (std::numeric_limits<float>::max ()),
-      z_min (std::numeric_limits<float>::max ()),
-      i_min (std::numeric_limits<float>::max ()),
-      x_size (std::numeric_limits<float>::min ()),
-      y_size (std::numeric_limits<float>::min ()),
-      z_size (std::numeric_limits<float>::min ()),
-      i_size (std::numeric_limits<float>::min ())
-  {
-  }
-};
-
-// Information holder for each cluster
-struct ClusterData
-{
-  pcl::IndicesPtr indices;
-  float EVD;
-  float etc;
-  bool is_tree;
-  bool is_ghost;
-  ClusterData () :
-      indices (new std::vector<int>),
-      is_tree (false),
-      is_ghost (false)
-  {
-  }
-};
+#include <pcl/filters/filter_indices.h>
 
 /** \brief Gathers information about the entire input cloud, useful for the other pipeline stages: automation/normalization of input parameters.
   * \param[in] cloud_in A pointer to the input point cloud.
@@ -107,6 +73,8 @@ gatherGlobalInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
   global_data.i_size = global_data.i_size - global_data.i_min;
 
   // Cardinality and density
-  global_data.cardinality = cloud_in->points.size ();
+  global_data.indices->clear ();
+  pcl::removeNaNFromPointCloud (*cloud_in, *global_data.indices);
+  global_data.cardinality = global_data.indices->size ();
   global_data.density = global_data.cardinality / (global_data.x_size * global_data.y_size * global_data.z_size);
 }

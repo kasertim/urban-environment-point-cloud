@@ -45,4 +45,8 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
                            GlobalData global_data,
                            boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
 {
+  // Passthrough example: every cluster that has features[0] > 0.5 will be classified as ghost
+  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
+    if ((*clusters_data)[c_it].features[0] > 0.5)
+      (*clusters_data)[c_it].is_ghost = true;
 }
