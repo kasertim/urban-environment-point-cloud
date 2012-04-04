@@ -37,6 +37,7 @@
 
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/extract_indices.h>
+#include <pcl/common/angles.h>
 
 // TODO: This step gets increasingly slower for larger data sets, maybe use an octree/voxelgrid to downsample temporarily
 // TODO: Check the model coefficients that are output after each segmentation and make sure you get rid of grounds (or walls) only
@@ -58,11 +59,15 @@ applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in,
   // A RANSAC segmentation class
   pcl::SACSegmentation<PointType> sacs;
   sacs.setInputCloud (cloud_in);
+  sacs.setIndices (global_data.indices);
   sacs.setMethodType (pcl::SAC_RANSAC);
-  sacs.setModelType (pcl::SACMODEL_PLANE);
+//  sacs.setModelType (pcl::SACMODEL_PLANE);
+  sacs.setModelType (pcl::SACMODEL_PERPENDICULAR_PLANE);
   sacs.setOptimizeCoefficients (true);
   sacs.setDistanceThreshold (distance_threshold);
   sacs.setMaxIterations (100);
+  sacs.setAxis (Eigen::Vector3f (0.0, 0.0, 1.0));
+//  sacs.setEpsAngle (pcl::deg2rad (5.0));
 
   // An ExtractIndices class for inverting indices
   pcl::ExtractIndices<PointType> ei;
@@ -95,6 +100,7 @@ applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in,
   }
 
   // Extract all indices *except* the ones of the planes for output
+  global_data.indices->clear ();
   ei.setIndices (removed_points);
   ei.filter (*global_data.indices);
 }
