@@ -37,8 +37,6 @@
 
 #include <pcl/filters/extract_indices.h>
 
-// TODO: Instead of removing the points from the cloud, make the noise points NaN in order to keep structure
-
 /** \brief This will be a simple ExtractIndices application for now, but for more elaborate noise it could mean smoothing or stuff like that.
   * \param[in] cloud_in A pointer to the input point cloud.
   * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
@@ -49,14 +47,14 @@ void
 applyNoiseFiltering (const pcl::PointCloud<PointType>::Ptr cloud_in,
                      GlobalData global_data,
                      boost::shared_ptr<std::vector<ClusterData> > clusters_data,
-                     pcl::PointCloud<PointType> &cloud_out)
+                     pcl::PointCloud<PointType>::Ptr &cloud_out)
 {
   // Set up the noise index array
   pcl::IndicesPtr noise_indices (new std::vector<int>);
 
-  // Fill in the index array with all trees and ghosts
+  // Fill in the index array with all noise classified objects
   for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-    if ((*clusters_data)[c_it].is_tree || (*clusters_data)[c_it].is_ghost)
+    if ((*clusters_data)[c_it].is_isolated || (*clusters_data)[c_it].is_tree || (*clusters_data)[c_it].is_ghost)
       noise_indices->insert (noise_indices->end (), (*clusters_data)[c_it].indices->begin (), (*clusters_data)[c_it].indices->end ());
 
   // Remove the corresponding points from the cloud
@@ -64,5 +62,7 @@ applyNoiseFiltering (const pcl::PointCloud<PointType>::Ptr cloud_in,
   ei.setInputCloud (cloud_in);
   ei.setIndices (noise_indices);
   ei.setNegative (true);
-  ei.filter (cloud_out);
+  if (cloud_in->isOrganized ())
+    ei.setKeepOrganized (true);
+  ei.filter (*cloud_out);
 }
