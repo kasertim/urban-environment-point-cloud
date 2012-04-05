@@ -205,7 +205,7 @@ classification<PointT>::classification(PointCloudPtr cloud, std::vector<pcl::Ind
 
     // Set up the VFHer class
     pcl::PointCloud<pcl::Normal>::Ptr normals_all (new pcl::PointCloud<pcl::Normal>);
-    ne.setKSearch(20);
+    ne.setKSearch(50);
     ne.compute (*normals_all);
     vfher_.setInputCloud (cloud_);
     vfher_.setInputNormals (normals_all);
@@ -216,7 +216,7 @@ classification<PointT>::classification(PointCloudPtr cloud, std::vector<pcl::Ind
         // Normals
         pcl::PointCloud<pcl::Normal>::Ptr buffN (new pcl::PointCloud<pcl::Normal>);
         ne.setIndices( clusters[i] );
-        ne.setKSearch(20);
+        ne.setKSearch(50);
         ne.compute (*buffN);
         cluster_normals_.push_back(buffN);
     }

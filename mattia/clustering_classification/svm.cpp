@@ -2849,12 +2849,12 @@ svm_model *svm_load_model(const char *model_file_name)
         }
         else if (strcmp(cmd,"scaling")==0)
         {
-            char *idx,*val;
+            char *idx,*val, buff[10000];
             int ii=0;
-            char delims[]="\t: ";
+            //char delims[]="\t: ";
             model->scaling = Malloc(struct svm_node, 1);
-            fscanf(fp,"%10000[^\n]",cmd);
-            idx = strtok(cmd, ":");
+            fscanf(fp,"%10000[^\n]",buff);
+            idx = strtok(buff, ":");
 
             while (idx!=NULL)
             {
@@ -2871,6 +2871,7 @@ svm_model *svm_load_model(const char *model_file_name)
         }
         else if (strcmp(cmd,"SV")==0)
         {
+	  //std::cout << cmd << std::endl;
             while (1)
             {
                 int c = getc(fp);
@@ -2894,7 +2895,7 @@ svm_model *svm_load_model(const char *model_file_name)
     int elements = 0;
     long pos = ftell(fp);
 
-    max_line_len = 1240;
+    max_line_len = 10000;
     line = Malloc(char,max_line_len);
     char *p,*endptr,*idx,*val;
 
@@ -2954,7 +2955,7 @@ svm_model *svm_load_model(const char *model_file_name)
         }
         x_space[j++].index = -1;
     }
-    //free(line);
+    free(line);
     //printf("%d e %f\n",model->scaling[j-2].index,model->scaling[j-2].value);
 
     if (ferror(fp) != 0 || fclose(fp) != 0)
