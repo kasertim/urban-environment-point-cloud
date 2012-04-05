@@ -5,7 +5,7 @@
 #include <pcl/octree/octree.h>
 
 #include "regionGrowing.h"
-#include "svm-train.h"
+#include "svm-bus.h"
 #include "classification.h"
 
 #include <pcl/features/vfh.h>
@@ -25,20 +25,23 @@ int main(int argc, char **argv) {
     pcl::PointCloud<PointType>::Ptr noise_cloud (new pcl::PointCloud<PointType>);
     pcl::PointCloud<PointType>::Ptr good_cloud (new pcl::PointCloud<PointType>);
     pcl::PointCloud<PointType>::Ptr total_cloud (new pcl::PointCloud<PointType>);
+    pcl::PointCloud<pcl::Normal>::Ptr noise_normals (new pcl::PointCloud<pcl::Normal>);
+    pcl::PointCloud<pcl::Normal>::Ptr good_normals (new pcl::PointCloud<pcl::Normal>);
     std::vector<pcl::IndicesPtr> clusteredGoodIndices;
     std::vector<pcl::IndicesPtr> clusteredNoisyIndices;
     std::vector<pcl::IndicesPtr> clusteredTotalIndices;
     pcl::RegionGrowing<PointType> rgA, rgB;
 
-    if (argc < 5)
+    if (argc < 6)
     {
         cerr << "\nThis program computes the classifier starting from two input clouds having x,y,z and intensity info: " << endl;
-        cerr << "\n  usage: " << argv[0] << " noise_cloud.pcd good_cloud.pcd radius output.pcd" << endl;
+        cerr << "\n  usage: " << argv[0] << " noise_cloud.pcd good_cloud.pcd radius angle output.pcd" << endl;
 	cerr << "  - noise_cloud: from which it extracts the segments labelled as noisy" << endl;
         cerr << "  - good_cloud: from which it extracts the segments labelled as good" << endl;
 	cerr << "  - clustering_radius: radius used for neighbour search" << endl;
+	cerr << "  - normals_offset: max angle between two point normals [radiants]" << endl;
 	cerr << "  - output: outputs the cloud showing the classification results\n" << endl;
-	cerr << "  ex:    "<< argv[0] << " noisy_points.pcd good_points.pcd 50 output.pcd\n" << endl;
+	cerr << "  ex:    "<< argv[0] << " noisy_points.pcd good_points.pcd 50 0.8 output.pcd\n" << endl;
         exit(0);
     }
 
@@ -47,33 +50,28 @@ int main(int argc, char **argv) {
         return 0;
     if (pcl::io::loadPCDFile (argv[2], *good_cloud))
         return 0;
+    
+    // Extracting normals
+    if (atof(argv[4]) > 0) {
+        rgA.setEpsAngle(atof(argv[4]));
+        pcl::NormalEstimation<PointType, pcl::Normal> ne;
+        ne.setInputCloud (noise_cloud);
+        pcl::search::KdTree<PointType>::Ptr tree (new pcl::search::KdTree<PointType> ());
+        ne.setSearchMethod (tree);
+        ne.setKSearch (atof(argv[3]));
+        ne.compute (*noise_normals);
+        rgA.setNormals(noise_normals);
+	cout << "normals estimed for " << argv[1] << endl;
 
-//     pcl::PointCloud<pcl::VFHSignature308>::Ptr vfh_temp (new pcl::PointCloud<pcl::VFHSignature308>);
-//     std::vector<pcl::PointCloud<pcl::VFHSignature308>::Ptr> vfh_ptrs_;
-//     pcl::VFHEstimation<PointType, pcl::Normal, pcl::VFHSignature308> vfher_;
-//     typename pcl::search::KdTree<PointType>::Ptr tree (new typename pcl::search::KdTree<PointType> ());
-//     pcl::PointCloud<pcl::Normal>::Ptr normals_all (new pcl::PointCloud<pcl::Normal>);
-//     pcl::NormalEstimation<PointType, pcl::Normal> ne;
-//     
-//     ne.setInputCloud (good_cloud);
-//     ne.setSearchMethod (tree);
-//     ne.setKSearch(20);
-//     ne.compute (*normals_all);
-// 
-//     vfher_.setInputCloud (good_cloud);
-//     vfher_.setInputNormals (normals_all);
-//     vfher_.setSearchMethod (tree);
-//     //vfher_.setIndices( clusters_[i] );
-// //    vfher_.compute (*vfh_temp);
-//     vfh_temp.reset(new pcl::PointCloud<pcl::VFHSignature308>);
-//     vfh_temp->clear();
-//     vfh_temp->points.clear();
-//     vfh_ptrs_.push_back (vfh_temp);
-//     
-//     cout << "size " << vfh_ptrs_.size() << endl;
-//     cout << " and1 " << vfh_ptrs_[0]->size() << endl;
-//     cout<< " and2 "<< vfh_ptrs_[0]->points[0].histogram[0]<< endl;
-	    
+        rgB.setEpsAngle(atof(argv[4]));
+        ne.setInputCloud (good_cloud);
+        ne.setSearchMethod (tree);
+        ne.setKSearch (atof(argv[3]));
+        ne.compute (*good_normals);
+        rgB.setNormals(good_normals);
+        cout << "normals estimed for " << argv[2] << endl;
+    }
+
     // Create the clusters
     cout << "Clustering noisy points...";
     rgA.setInputCloud (noise_cloud);
@@ -109,15 +107,15 @@ int main(int argc, char **argv) {
 
     
     // Generating the vector for SVM training
-    SvmTrain train;
+    pcl::SvmTrain train;
     
-    train.nFeatures= 5 + 308; // n of features for a point
+    train.nFeatures= 5;// + 308; // n of features for a point
     train.prob.l = clusteredNoisyIndices.size() + clusteredGoodIndices.size(); // n of elements/points
     train.prob.y = Malloc(double,train.prob.l);
     train.prob.x = Malloc(struct svm_node *,train.prob.l);
     train.scaling.obj = Malloc(struct svm_node,train.nFeatures+1);
-    train.param.C=8192;//32768;
-    train.param.gamma=2;//8;
+    train.param.C=32768;//1;
+    train.param.gamma=0.5;//8;
 //     train.cross_validation=1;
 //     train.nr_fold = 8; // is how many sets to split your input data
     
@@ -159,28 +157,28 @@ int main(int argc, char **argv) {
         train.scaling.obj[4].value=*( std::max_element( featuresB.eigModule_.begin(), featuresB.eigModule_.end() ) );
     
     // Finding the maximum values for 308 elements
-    for(int vfh_n=0; vfh_n < 308; vfh_n++){
-      train.scaling.obj[4+1+vfh_n].index=4+1+vfh_n;
-      
-      float maxA=0.0f, maxB=0.0f;
-      //int a_num=0, b_num=0;
-      for(int jj=0; jj < featuresA.vfh_ptrs_.size(); jj++)
-	if(featuresA.vfh_ptrs_[jj]->size() > 0){
-	  if(module(featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n])>maxA)
-	    maxA = module(featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n]);
-	}
-
-      for(int jj=0; jj < featuresB.vfh_ptrs_.size(); jj++)
-	if(featuresB.vfh_ptrs_[jj]->size() > 0){
-	  if(module(featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n])>maxA)
-	    maxA = module(featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n]);
-	}
-      
-      if(maxA > maxB)
-	train.scaling.obj[4+1+vfh_n].value = maxA;
-      else
-	train.scaling.obj[4+1+vfh_n].value = maxB;
-    }
+//     for(int vfh_n=0; vfh_n < 308; vfh_n++){
+//       train.scaling.obj[4+1+vfh_n].index=4+1+vfh_n;
+//       
+//       float maxA=0.0f, maxB=0.0f;
+//       //int a_num=0, b_num=0;
+//       for(int jj=0; jj < featuresA.vfh_ptrs_.size(); jj++)
+// 	if(featuresA.vfh_ptrs_[jj]->size() > 0){
+// 	  if(module(featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n])>maxA)
+// 	    maxA = module(featuresA.vfh_ptrs_[jj]->points[0].histogram[vfh_n]);
+// 	}
+// 
+//       for(int jj=0; jj < featuresB.vfh_ptrs_.size(); jj++)
+// 	if(featuresB.vfh_ptrs_[jj]->size() > 0){
+// 	  if(module(featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n])>maxA)
+// 	    maxA = module(featuresB.vfh_ptrs_[jj]->points[0].histogram[vfh_n]);
+// 	}
+//       
+//       if(maxA > maxB)
+// 	train.scaling.obj[4+1+vfh_n].value = maxA;
+//       else
+// 	train.scaling.obj[4+1+vfh_n].value = maxB;
+//     }
     
     train.scaling.obj[train.nFeatures].index=-1;
     cout << "done." << endl;
@@ -233,20 +231,20 @@ int main(int argc, char **argv) {
             j++;
         }
 
-        if ( featuresA.vfh_ptrs_[i]->size() > 0 )
-            for (int vfh_n=0; vfh_n < 308; vfh_n++) {
-                if ( std::isfinite(featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
-                    train.prob.x[i][j].index = 4+vfh_n+1;
-                    if (featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] != 0)
-                        train.prob.x[i][j].value =
-                            featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
-                    else
-                        train.prob.x[i][j].value =
-                            featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n];		
-                    j++;
-                }
-                
-            }
+//         if ( featuresA.vfh_ptrs_[i]->size() > 0 )
+//             for (int vfh_n=0; vfh_n < 308; vfh_n++) {
+//                 if ( std::isfinite(featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n]) ) {
+//                     train.prob.x[i][j].index = 4+vfh_n+1;
+//                     if (featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] != 0)
+//                         train.prob.x[i][j].value =
+//                             featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+//                     else
+//                         train.prob.x[i][j].value =
+//                             featuresA.vfh_ptrs_[i]->points[0].histogram[vfh_n];		
+//                     j++;
+//                 }
+//                 
+//             }
 
         train.prob.x[i][j].index = -1; // set last element of a sample
     }
@@ -292,19 +290,19 @@ int main(int argc, char **argv) {
             j++;
         }
 
-        if ( featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->size() > 0 )
-            for (int vfh_n=0; vfh_n < 308; vfh_n++) {
-                if ( std::isfinite(featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n]) ) {
-                    train.prob.x[i][j].index = 4+vfh_n+1;
-                    if (featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n] != 0)
-                        train.prob.x[i][j].value =
-                            featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
-                    else
-                        train.prob.x[i][j].value =
-                            featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n];
-                    j++;
-                }
-            }
+//         if ( featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->size() > 0 )
+//             for (int vfh_n=0; vfh_n < 308; vfh_n++) {
+//                 if ( std::isfinite(featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n]) ) {
+//                     train.prob.x[i][j].index = 4+vfh_n+1;
+//                     if (featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n] != 0)
+//                         train.prob.x[i][j].value =
+//                             featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n] / train.scaling.obj[4+vfh_n+1].value;
+//                     else
+//                         train.prob.x[i][j].value =
+//                             featuresB.vfh_ptrs_[i-clusteredNoisyIndices.size()]->points[0].histogram[vfh_n];
+//                     j++;
+//                 }
+//             }
         train.prob.x[i][j].index = -1; // set last element of a sample
     }
     cout << "done" << endl;
@@ -312,7 +310,7 @@ int main(int argc, char **argv) {
 
     train.execute();
 
-    SvmPredict pred;
+    pcl::SvmPredict pred;
     pred.model = train.model;
     pred.input = train.prob;
     pred.prediction_test();
