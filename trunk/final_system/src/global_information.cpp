@@ -45,25 +45,28 @@ void
 gatherGlobalInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
                          GlobalData &global_data)
 {
+  // Index only the finite values
+  pcl::removeNaNFromPointCloud (*cloud_in, *global_data.indices);
+
   // Calculate the minimum and maximum values of all fields
-  for (int p_it = 0; p_it < static_cast<int> (cloud_in->points.size ()); ++p_it)
+  for (size_t i_it = 0; i_it < global_data.indices->size (); ++i_it)
   {
-    if (cloud_in->points[p_it].x < global_data.x_min)
-      global_data.x_min = cloud_in->points[p_it].x;
-    if (cloud_in->points[p_it].x > global_data.x_size)
-      global_data.x_size = cloud_in->points[p_it].x;
-    if (cloud_in->points[p_it].y < global_data.y_min)
-      global_data.y_min = cloud_in->points[p_it].y;
-    if (cloud_in->points[p_it].y > global_data.y_size)
-      global_data.y_size = cloud_in->points[p_it].y;
-    if (cloud_in->points[p_it].z < global_data.z_min)
-      global_data.z_min = cloud_in->points[p_it].z;
-    if (cloud_in->points[p_it].z > global_data.z_size)
-      global_data.z_size = cloud_in->points[p_it].z;
-    if (cloud_in->points[p_it].intensity < global_data.i_min)
-      global_data.i_min = cloud_in->points[p_it].intensity;
-    if (cloud_in->points[p_it].intensity > global_data.i_size)
-      global_data.i_size = cloud_in->points[p_it].intensity;
+    if (cloud_in->points[(*global_data.indices)[i_it]].x < global_data.x_min)
+      global_data.x_min = cloud_in->points[(*global_data.indices)[i_it]].x;
+    if (cloud_in->points[(*global_data.indices)[i_it]].x > global_data.x_size)
+      global_data.x_size = cloud_in->points[(*global_data.indices)[i_it]].x;
+    if (cloud_in->points[(*global_data.indices)[i_it]].y < global_data.y_min)
+      global_data.y_min = cloud_in->points[(*global_data.indices)[i_it]].y;
+    if (cloud_in->points[(*global_data.indices)[i_it]].y > global_data.y_size)
+      global_data.y_size = cloud_in->points[(*global_data.indices)[i_it]].y;
+    if (cloud_in->points[(*global_data.indices)[i_it]].z < global_data.z_min)
+      global_data.z_min = cloud_in->points[(*global_data.indices)[i_it]].z;
+    if (cloud_in->points[(*global_data.indices)[i_it]].z > global_data.z_size)
+      global_data.z_size = cloud_in->points[(*global_data.indices)[i_it]].z;
+    if (cloud_in->points[(*global_data.indices)[i_it]].intensity < global_data.i_min)
+      global_data.i_min = cloud_in->points[(*global_data.indices)[i_it]].intensity;
+    if (cloud_in->points[(*global_data.indices)[i_it]].intensity > global_data.i_size)
+      global_data.i_size = cloud_in->points[(*global_data.indices)[i_it]].intensity;
   }
 
   // Convert max to size
@@ -73,8 +76,6 @@ gatherGlobalInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
   global_data.i_size = global_data.i_size - global_data.i_min;
 
   // Cardinality and density
-  global_data.indices->clear ();
-  pcl::removeNaNFromPointCloud (*cloud_in, *global_data.indices);
   global_data.cardinality = global_data.indices->size ();
   global_data.density = global_data.cardinality / (global_data.x_size * global_data.y_size * global_data.z_size);
 }

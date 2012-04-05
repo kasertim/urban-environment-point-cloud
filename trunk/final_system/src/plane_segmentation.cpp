@@ -35,14 +35,12 @@
  *
  */
 
+#include <pcl/octree/octree.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/extract_indices.h>
-#include <pcl/common/angles.h>
 
-// TODO: This step gets increasingly slower for larger data sets, maybe use an octree/voxelgrid to downsample temporarily
-// TODO: Check the model coefficients that are output after each segmentation and make sure you get rid of grounds (or walls) only
-// TODO: The min_segment_size parameter needs to be altered more adaptively
-// TODO: Maybe use different min_segment_size parameters: for walls use higher values than for ground planes
+// TODO: The min_segment_size_coefficient could be improved to adapt to the amount of expected contents in the scene
+// TODO: Maybe only apply to grounds instead of any large plane
 
 /** \brief Segments ground and wall planes from the input cloud.
   * \param[in] cloud_in A pointer to the input point cloud.
@@ -52,44 +50,62 @@ void
 applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in,
                         GlobalData &global_data)
 {
-  // Input parameters for this section:
-  int min_segment_size = global_data.cardinality / 10; // Maybe make this dependent off a global input parameter for cluttering
-  float distance_threshold = 0.1 * global_data.scale; // 10 centimeters of noise allowed
+  // ---- AUTOMATED INPUT PARAMETERS OF THIS SECTION ----
+  // Points within this distance from a calculated plane will be marked as belonging to that plane
+  // Setting this larger will be more useful for segmenting surfaces that are not perfectly flat
+  // It will however also start removed larger portions of objects that are adjacent to that surface
+  // Currently: assume all points within 0.2 meters distance on either side of the plane
+  float distance_threshold = 0.2 * global_data.scale;
+  // Speed / accuracy tradeoff for this section, also used for equalizing density
+  // Note that the gain in accuracy can be neglected when this is significantly smaller than distance_threshold
+  // Currently: analyze on voxels of 0.1 x 0.1 x 0.1 meter
+  float resolution = 0.5 * distance_threshold;
+  // The number of points in the octree representation gets multiplied by this coefficient to get to minimum segment size
+  // Maybe make this dependent off a global input parameter for the amount of expected contents in the scene
+  // Currently: segment planes that make up at least 10% of the scene (after density equalization)
+  float min_segment_size_coefficient = 0.1;
 
-  // A RANSAC segmentation class
+  // An octree representation class for temporary downsampling
+  pcl::octree::OctreePointCloudSearch<PointType> octree (resolution);
+  octree.setInputCloud (cloud_in, global_data.indices);
+  octree.addPointsFromInputCloud ();
+
+  // A RANSAC planar segmentation class
   pcl::SACSegmentation<PointType> sacs;
-  sacs.setInputCloud (cloud_in);
-  sacs.setIndices (global_data.indices);
   sacs.setMethodType (pcl::SAC_RANSAC);
-//  sacs.setModelType (pcl::SACMODEL_PLANE);
-  sacs.setModelType (pcl::SACMODEL_PERPENDICULAR_PLANE);
+  sacs.setModelType (pcl::SACMODEL_PLANE);
   sacs.setOptimizeCoefficients (true);
   sacs.setDistanceThreshold (distance_threshold);
   sacs.setMaxIterations (100);
-  sacs.setAxis (Eigen::Vector3f (0.0, 0.0, 1.0));
-//  sacs.setEpsAngle (pcl::deg2rad (5.0));
 
   // An ExtractIndices class for inverting indices
   pcl::ExtractIndices<PointType> ei;
-  ei.setInputCloud (cloud_in);
   ei.setNegative (true);
 
   // Variables used
+  pcl::PointCloud<PointType>::Ptr cloud_octree (new pcl::PointCloud<PointType>);
   pcl::ModelCoefficients coefficients;
   pcl::PointIndices current_plane;
   pcl::IndicesPtr removed_points (new std::vector<int>);
   pcl::IndicesPtr remaining_points (new std::vector<int>);
 
-  // First segmentation to enter loop properly
+  // Downsampling
+  octree.getOccupiedVoxelCenters (cloud_octree->points);
+  cloud_octree->width = cloud_octree->points.size ();
+  cloud_octree->height = 1;
+  sacs.setInputCloud (cloud_octree);
+  ei.setInputCloud (cloud_octree);
+
+  // First segmentation to enter loop properly, the first plane is also not restricted by min_segment_size
   sacs.segment (current_plane, coefficients);
 
   // Loop while the found plane is large enough
-  while (current_plane.indices.size () > min_segment_size)
+  do
   {
-    // Concatenate all planes into removed_points
+    // Concatenate all found planes into removed_points
     (*removed_points).insert ((*removed_points).end (), current_plane.indices.begin (), current_plane.indices.end ());
 
-    // Extract all indices *except* the ones of the planes
+    // Extract all indices *except* the ones of the planes found so far
     remaining_points->clear ();
     ei.setIndices (removed_points);
     ei.filter (*remaining_points);
@@ -98,9 +114,14 @@ applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in,
     sacs.setIndices (remaining_points);
     sacs.segment (current_plane, coefficients);
   }
+  while (current_plane.indices.size () > min_segment_size_coefficient * cloud_octree->width);
 
-  // Extract all indices *except* the ones of the planes for output
+  // Upsample back from octree representation and store in output
   global_data.indices->clear ();
-  ei.setIndices (removed_points);
-  ei.filter (*global_data.indices);
+  for (size_t i_it = 0; i_it < remaining_points->size (); ++i_it)
+  {
+    std::vector<int> voxel_indices;
+    octree.voxelSearch (cloud_octree->points[(*remaining_points)[i_it]], voxel_indices);
+    global_data.indices->insert (global_data.indices->end (), voxel_indices.begin (), voxel_indices.end ());
+  }
 }

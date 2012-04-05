@@ -66,13 +66,12 @@ struct ClusterData
 {
   pcl::IndicesPtr indices;
   std::vector<float> features;
-  bool is_tree;
-  bool is_ghost;
+  bool is_isolated, is_tree, is_ghost;
 
   ClusterData () :
     indices (new std::vector<int>),
     features (),
-    is_tree (false), is_ghost (false)
+    is_isolated (false), is_tree (false), is_ghost (false)
   {}
 };
 
@@ -85,7 +84,7 @@ struct ClusterData
 #include "src/noise_filtering.cpp"
 
 void
-compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType> &cloud_out, float scale)
+compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType>::Ptr &cloud_out, float scale)
 {
   pcl::console::TicToc tt;
   pcl::console::print_highlight (stderr, "Computing (1/6): Global information ");
@@ -98,6 +97,8 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
+  pcl::console::print_info (stderr, "Finite points in cloud: ");
+  pcl::console::print_value (stderr, "%d\n", global_data.indices->size ());
   pcl::console::print_highlight (stderr, "Computing (2/6): Plane segmentation ");
   tt.tic ();
 
@@ -146,17 +147,17 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
 }
 
 void
-saveCloud (const std::string filename, const pcl::PointCloud<PointType> cloud)
+saveCloud (const std::string filename, const pcl::PointCloud<PointType>::Ptr cloud)
 {
   pcl::console::TicToc tt;
   pcl::console::print_highlight (stderr, "Saving ");
   pcl::console::print_value (stderr, "%s ", filename.c_str ());
   tt.tic ();
-  pcl::io::savePCDFileBinary (filename, cloud);
+  pcl::io::savePCDFileBinary (filename, *cloud);
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms : ");
-  pcl::console::print_value ("%d", cloud.width * cloud.height);
+  pcl::console::print_value ("%d", cloud->width * cloud->height);
   pcl::console::print_info (" points]\n");
 }
 
@@ -210,7 +211,7 @@ main (int argc, char** argv)
     return (-1);
 
   // Computation
-  pcl::PointCloud<PointType> cloud_out;
+  pcl::PointCloud<PointType>::Ptr cloud_out (new pcl::PointCloud<PointType>);
   compute (cloud_in, cloud_out, scale);
 
   // Save output cloud
