@@ -8,8 +8,6 @@
 #include <pcl/features/normal_3d.h>
 #include <pcl/features/principal_curvatures.h>
 
-#include "svm_wrapper.h"
-
 // I added these
 //#include <pcl/common/common.h>
 #include <pcl/features/vfh.h>
@@ -69,17 +67,13 @@ public:
     std::vector<VFHCloudType::Ptr> getVFH() {
         return vfh_ptrs_;
     }
-    
-    std::vector<pcl::svmData> features;
 
     std::vector<double> cardinality_;
     std::vector<double> intensity_;
     std::vector<double> norm_std_dev_;
     std::vector<double> curv_std_dev_;
     std::vector<double> eigModule_;
-    
     std::vector<VFHCloudType::Ptr> vfh_ptrs_;
-    
 private:
     /*
      * Extract clusters cardinalities
@@ -205,72 +199,34 @@ classification<PointT>::classification(PointCloudPtr cloud, std::vector<pcl::Ind
 
     // Normals and curvatures estimation
     pcl::NormalEstimation<PointT, pcl::Normal> ne;
-    typename pcl::search::KdTree<PointT>::Ptr tree (new typename pcl::search::KdTree<PointT> (false));
+    typename pcl::search::KdTree<PointT>::Ptr tree (new typename pcl::search::KdTree<PointT> ());
     ne.setInputCloud (cloud_);
     ne.setSearchMethod (tree);
 
     // Set up the VFHer class
-     pcl::PointCloud<pcl::Normal>::Ptr normals_all (new pcl::PointCloud<pcl::Normal>);
-     ne.setRadiusSearch(20);
-     ne.compute (*normals_all);
-//     vfher_.setInputCloud (cloud_);
-//     vfher_.setInputNormals (normals_all);
-//     vfher_.setSearchMethod (tree);
+    pcl::PointCloud<pcl::Normal>::Ptr normals_all (new pcl::PointCloud<pcl::Normal>);
+    ne.setKSearch(50);
+    ne.compute (*normals_all);
+    vfher_.setInputCloud (cloud_);
+    vfher_.setInputNormals (normals_all);
+    vfher_.setSearchMethod (tree);
 
     for (int i=0; i< clusters_.size(); i++)
     {
         // Normals
         pcl::PointCloud<pcl::Normal>::Ptr buffN (new pcl::PointCloud<pcl::Normal>);
-	buffN->resize( clusters_[i]->size() );
-	
-	for(int j=0; j<clusters_[i]->size() ;j++){
-	  buffN->points[j].normal_x = normals_all->points[ clusters_[i]->operator[](j) ].normal_x;
-	  buffN->points[j].normal_y = normals_all->points[ clusters_[i]->operator[](j) ].normal_y;
-	  buffN->points[j].normal_z = normals_all->points[ clusters_[i]->operator[](j) ].normal_z;
-	}
-	
+        ne.setIndices( clusters[i] );
+        ne.setKSearch(50);
+        ne.compute (*buffN);
         cluster_normals_.push_back(buffN);
-	
-	
-// 	        // Normals
-//         pcl::PointCloud<pcl::Normal>::Ptr buffN (new pcl::PointCloud<pcl::Normal>);
-//         ne.setIndices( clusters[i] );
-//         ne.setKSearch(50);
-//         ne.compute (*buffN);
-//         cluster_normals_.push_back(buffN);
     }
 
-    features.clear();
     cardinality();
     intensity();
     normal_curv();
     EVD();
-    //VFH();
-    
-    //pcl::svmData buff;
-    
-    for (int i=0; i< clusters_.size(); i++) {
-      pcl::svmData buff;
-      buff.SV.resize(5);
-      
-      buff.SV[0].idx = 0;
-      buff.SV[0].value = cardinality_[i];
-      
-      buff.SV[1].idx = 1;
-      buff.SV[1].value = intensity_[i];
-      
-      buff.SV[2].idx = 2;
-      buff.SV[2].value = norm_std_dev_[i];
-      
-      buff.SV[3].idx = 3;
-      buff.SV[3].value = curv_std_dev_[i];
-      
-      buff.SV[4].idx = 4;
-      buff.SV[4].value = eigModule_[i];
-      
-      features.push_back(buff);
-    }
- //std::cout << features.size() << std::endl;
+    VFH();
+
 
 //     std::cout << "\nMaximum cardinality_: " << *(std::max_element(cardinality_.begin(),cardinality_.end()) ) << std::endl;
 //     std::cout << "Maximum intensity_: " << *(std::max_element(intensity_.begin(),intensity_.end()) ) << std::endl;

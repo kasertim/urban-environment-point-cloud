@@ -2686,8 +2686,7 @@ int svm_save_model(const char *model_file_name, const svm_model *model)
     int ii=0;
     while (model->scaling[ii].index != -1)
     {
-        if (model->scaling[ii].index)
-            fprintf(fp,"%d:%.8g ",ii,model->scaling[ii].value);
+        fprintf(fp,"%d:%.8g ",model->scaling[ii].index,model->scaling[ii].value);
         ii++;
     }
     fprintf(fp, "\n");
@@ -2753,8 +2752,6 @@ svm_model *svm_load_model(const char *model_file_name)
     model->probB = NULL;
     model->label = NULL;
     model->nSV = NULL;
-    model->scaling = Malloc(struct svm_node, 1);
-    model->scaling[0].index = -1; 
 
     char cmd[81];
     while (1)
@@ -2853,7 +2850,7 @@ svm_model *svm_load_model(const char *model_file_name)
         else if (strcmp(cmd,"scaling")==0)
         {
             char *idx,*val, buff[10000];
-            int ii=0, pre_ii=0;
+            int ii=0;
             //char delims[]="\t: ";
             model->scaling = Malloc(struct svm_node, 1);
             fscanf(fp,"%10000[^\n]",buff);
@@ -2862,22 +2859,16 @@ svm_model *svm_load_model(const char *model_file_name)
             while (idx!=NULL)
             {
                 val = strtok(NULL, " \t");
-		pre_ii = ii;
-		ii = atoi(idx);
 
                 model->scaling=Realloc(model->scaling,struct svm_node, ii+1);
-		
-		//setting to zero the non defined scaling factors
-		for(int j=pre_ii+1; j< ii; j++)
-		  model->scaling[j].index = 0;
 
-                model->scaling[ii].index = 1;
+                model->scaling[ii].index = atoi(idx);
                 model->scaling[ii].value = atof(val);
                 ++ii;
                 idx = strtok(NULL, ":");
                 //printf("%d e %f\n",model->scaling[ii-1].index,model->scaling[ii-1].value);
             }
-            model->scaling[ii].index = -1;
+            model.n_features = ii;
         }
         else if (strcmp(cmd,"SV")==0)
         {
