@@ -66,11 +66,24 @@ protected:
 
     bool loadProblem(const char *filename, svm_problem *prob);
 
-    void saveProblem(const char *filename, svm_problem prob_, bool labelled);
-    void saveProblemNorm(const char *filename, svm_problem prob_, bool labelled);
+    bool saveProblem(const char *filename, svm_problem prob_, bool labelled);
+    bool saveProblemNorm(const char *filename, svm_problem prob_, bool labelled);
 
 //public:
     svm_parameter param;
+    
+public:
+
+    void saveModel(const char *filename) {
+        if (model_->l == 0)
+            return;
+	
+        if (svm_save_model(filename,model_))
+        {
+            fprintf(stderr, "can't save model to file %s\n", model_file_name);
+            exit(1);
+        }
+    };
 
 };
 
@@ -82,7 +95,6 @@ protected:
     void scaleFactors(std::vector<svmData> trainingSet, svm_scaling *scaling);
 
     int cross_validation;
-    int nFeatures;
     int nr_fold;
 
     bool debug_;
@@ -131,12 +143,12 @@ public:
         svm_set_print_string_function(print_func);
     };
 
-    void saveProblem(const char *filename) {
-        SVM::saveProblem(filename, prob_, 1);
+    bool saveProblem(const char *filename) {
+        return SVM::saveProblem(filename, prob_, 1);
     };
 
-    void saveProblemNorm(const char *filename) {
-        SVM::saveProblemNorm(filename, prob_, 1);
+    bool saveProblemNorm(const char *filename) {
+        return SVM::saveProblemNorm(filename, prob_, 1);
     };
 };
 
@@ -146,9 +158,10 @@ class SvmPredict : public SVM {
 
 protected:
     void scaleProblem(svm_problem *input, svm_scaling scaling);
-    FILE *output;
     bool predict_probability;
     using SVM::labelledTrainingSet_;
+    
+    std::vector< std::vector<double> > prediction_;
 
 
 public:
@@ -162,9 +175,6 @@ public:
         trainingSet_.clear();
     }
 
-    std::vector< std::vector<double> > prediction_;
-
-
     SvmPredict () {
         line = NULL;
         max_line_len = 10000;
@@ -172,9 +182,16 @@ public:
         model_ = new svm_model;
         model_->l = 0;
 	labelledTrainingSet_=1;
+	prediction_.clear();
     }
 
     bool loadModel(const char *filename);
+    
+    std::vector< std::vector<double> > getPrediction(){
+      return prediction_;
+    }
+    
+    void savePrediction(const char *filename);
 
     void setInputModel(svm_model* model) {
         model_ = model;
@@ -188,11 +205,8 @@ public:
     };
 
     bool loadProblem(const char *filename) {
-        assert (model_->l == 0);
-//         {
-//             std::cout << "Please load the classifier model before loading the Classification Problem." << std::endl;
-//             return 0;
-//         }
+        assert (model_->l != 0);
+
         bool out = SVM::loadProblem(filename, &prob_);
         SVM::adaptLibSVMToInput(&trainingSet_, prob_);
         scaleProblem(&prob_, scaling_);
@@ -223,12 +237,12 @@ public:
     /*
      * Save problem in specified file
      */
-    void saveProblem(const char *filename) {
-        SVM::saveProblem(filename, prob_, 0);
+    bool saveProblem(const char *filename) {
+       return SVM::saveProblem(filename, prob_, 0);
     };
 
-    void saveProblemNorm(const char *filename) {
-        SVM::saveProblemNorm(filename, prob_, 0);
+    bool saveProblemNorm(const char *filename) {
+       return SVM::saveProblemNorm(filename, prob_, 0);
     };
 };
 }

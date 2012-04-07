@@ -2865,11 +2865,13 @@ svm_model *svm_load_model(const char *model_file_name)
 		pre_ii = ii;
 		ii = atoi(idx);
 
-                model->scaling=Realloc(model->scaling,struct svm_node, ii+1);
+                model->scaling=Realloc(model->scaling,struct svm_node, ii+2);
 		
 		//setting to zero the non defined scaling factors
-		for(int j=pre_ii+1; j< ii; j++)
+		for(int j=pre_ii+1; j< ii; j++){
 		  model->scaling[j].index = 0;
+		  model->scaling[j].value = 0;
+		}
 
                 model->scaling[ii].index = 1;
                 model->scaling[ii].value = atof(val);

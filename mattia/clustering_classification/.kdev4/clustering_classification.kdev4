@@ -21,7 +21,7 @@ Name=clust_class
 Type=Native Application
 
 [Launch][Launch Configuration 0][Data]
-Arguments=cropped_leaves.pcd noisy_points.pcd 20 0 output.pcd\n
+Arguments=cropped_ghosts.pcd cropped_ghosts.pcd 50 0.1 outputB.pcd\n
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing
 EnvironmentGroup=default

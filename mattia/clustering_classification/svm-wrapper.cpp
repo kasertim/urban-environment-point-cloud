@@ -3,6 +3,7 @@
 
 #include "svm_wrapper.h"
 #include <assert.h>
+#include <fstream>
 
 inline float module(float a) {
     if (a>0)
@@ -104,7 +105,6 @@ pcl::SvmTrain::SvmTrain() {
     param.weight = NULL;
     cross_validation = 0;
     nr_fold=0;
-    nFeatures=0;
     strcpy(model_file_name,"output.model");
     model_ = Malloc(svm_model,1);
     model_->probA = NULL;
@@ -125,8 +125,8 @@ void pcl::SvmTrain::scaleFactors(std::vector<svmData> trainingSet, svm_scaling *
             if (trainingSet[i].SV[j].idx > max )
                 max = trainingSet[i].SV[j].idx;
 
+	    max+=1;
     scaling->obj = Malloc(struct svm_node,max+1);
-    nFeatures = max;
 
     scaling->obj[max].index = -1;
 
@@ -215,8 +215,8 @@ int pcl::SvmTrain::train()
     error_msg = svm_check_parameter(&prob_,&param);
 
     // initialize gamma parameter
-    if (param.gamma == 0 && nFeatures > 0)
-        param.gamma = 1.0/nFeatures;
+    if (param.gamma == 0 && scaling_.max > 0)
+        param.gamma = 1.0/scaling_.max;
 
     if (error_msg)
     {
@@ -232,12 +232,6 @@ int pcl::SvmTrain::train()
     {
         model_ = svm_train(&prob_,&param);
         model_->scaling = scaling_.obj;
-        if (svm_save_model(model_file_name,model_))
-        {
-            fprintf(stderr, "can't save model to file %s\n", model_file_name);
-            exit(1);
-        }
-        //svm_free_and_destroy_model(&model);
     }
 
     return 0;
@@ -389,13 +383,16 @@ bool pcl::SVM::loadProblem(const char *filename, svm_problem *prob)
 }
 
 
-void pcl::SVM::saveProblem(const char *filename, svm_problem prob_, bool labelled = 0) {
+bool pcl::SVM::saveProblem(const char *filename, svm_problem prob_, bool labelled = 0) {
     std::ofstream myfile;
     myfile.open (filename);
+    
+    if (!myfile.is_open()) return 0;
+    
     for (int j=0; j < trainingSet_.size() ; j++)
     {
         if (labelled)
-            myfile << trainingSet_[j].label << " ";
+            myfile << *trainingSet_[j].label << " ";
 
         for (int i=0; i < trainingSet_[j].SV.size(); i++)
             if (std::isfinite( trainingSet_[j].SV[i].value) )
@@ -405,15 +402,19 @@ void pcl::SVM::saveProblem(const char *filename, svm_problem prob_, bool labelle
     }
     myfile.close();
     std::cout << " * " << filename << " saved" << std::endl;
+    return 1;
 }
 
-void pcl::SVM::saveProblemNorm(const char *filename, svm_problem prob_, bool labelled = 0) {
+bool pcl::SVM::saveProblemNorm(const char *filename, svm_problem prob_, bool labelled = 0) {
     if (prob_.l == 0) {
         std::cout << "Can't save " << filename << " whitout creating the problem before." << std::endl;
-        return;
+        return 0;
     }
     std::ofstream myfile;
     myfile.open (filename);
+    
+    if (!myfile.is_open()) return 0;
+    
     for (int j=0; j < prob_.l ; j++)
     {
         if (labelled)
@@ -426,10 +427,10 @@ void pcl::SVM::saveProblemNorm(const char *filename, svm_problem prob_, bool lab
             i++;
         }
         myfile << "\n";
-
     }
     myfile.close();
     std::cout << " * " << filename << " saved" << std::endl;
+    return 1;
 }
 
 bool pcl::SvmPredict::loadModel(const char *filename) {
@@ -453,7 +454,6 @@ void pcl::SvmPredict::prediction_test()
 {
     assert(model_->l != 0);
     assert(prob_.l != 0);
-    std::cout <<"gay "<< labelledTrainingSet_ << std::endl;
     assert(labelledTrainingSet_!=0);
 
     if (predict_probability)
@@ -487,22 +487,13 @@ void pcl::SvmPredict::prediction_test()
 
     prediction_.clear();
 
-    output = fopen("prediction.output","w");
-
     if (predict_probability)
     {
         if (svm_type==NU_SVR || svm_type==EPSILON_SVR)
             printf("Prob. model for test data: target value = predicted value + z,\nz: Laplace distribution e^(-|z|/sigma)/(2sigma),sigma=%g\n",svm_get_svr_probability(model_));
         else
         {
-            int *labels=(int *) malloc(nr_class*sizeof(int));
-            svm_get_labels(model_,labels);
             prob_estimates = (double *) malloc(nr_class*sizeof(double));
-            fprintf(output,"labels");
-            for (j=0;j<nr_class;j++)
-                fprintf(output," %d",labels[j]);
-            fprintf(output,"\n");
-            free(labels);
         }
     }
 
@@ -520,18 +511,14 @@ void pcl::SvmPredict::prediction_test()
         if (predict_probability && (svm_type==C_SVC || svm_type==NU_SVC))
         {
             predict_label = svm_predict_probability(model_,prob_.x[ii],prob_estimates);
-            fprintf(output,"%g",predict_label);
             prediction_[ii].push_back(predict_label);
             for (j=0;j<nr_class;j++) {
-                fprintf(output," %g",prob_estimates[j]);
                 prediction_[ii].push_back(prob_estimates[j]);
             }
-            fprintf(output,"\n");
         }
         else
         {
             predict_label = svm_predict(model_,prob_.x[ii]);
-            fprintf(output,"%g\n",predict_label);
             prediction_[ii].push_back(predict_label);
         }
 
@@ -567,15 +554,11 @@ void pcl::SvmPredict::predict()
     assert(model_->l != 0);
     assert(prob_.l != 0);
 
-    if (predict_probability)
-        if (svm_check_probability_model(model_)==0)
-        {
-            fprintf(stderr,"\nModel does not support probabiliy estimates\n");
-            exit(1);
-        }
-        else
-            if (svm_check_probability_model(model_)!=0)
-                printf("\nModel supports probability estimates, but disabled in prediction.\n");
+    if (predict_probability && !svm_check_probability_model(model_))
+      fprintf(stderr,"\nModel does not support probabiliy estimates\n");
+    
+    if (!predict_probability && svm_check_probability_model(model_))
+      printf("\nModel supports probability estimates, but disabled in prediction.\n");
 
     ////////////////////////////////////////////////////
     ////////////////////////////////////////////////
@@ -592,22 +575,13 @@ void pcl::SvmPredict::predict()
 
     prediction_.clear();
 
-    output = fopen("prediction.output","w");
-
     if (predict_probability)
     {
         if (svm_type==NU_SVR || svm_type==EPSILON_SVR)
             printf("Prob. model for test data: target value = predicted value + z,\nz: Laplace distribution e^(-|z|/sigma)/(2sigma),sigma=%g\n",svm_get_svr_probability(model_));
         else
         {
-            int *labels=(int *) malloc(nr_class*sizeof(int));
-            svm_get_labels(model_,labels);
             prob_estimates = (double *) malloc(nr_class*sizeof(double));
-            fprintf(output,"labels");
-            for (j=0;j<nr_class;j++)
-                fprintf(output," %d",labels[j]);
-            fprintf(output,"\n");
-            free(labels);
         }
     }
     int ii=0;
@@ -621,18 +595,14 @@ void pcl::SvmPredict::predict()
         if (predict_probability && (svm_type==C_SVC || svm_type==NU_SVC))
         {
             predict_label = svm_predict_probability(model_,prob_.x[ii],prob_estimates);
-            fprintf(output,"%g",predict_label);
             prediction_[ii].push_back(predict_label);
             for (j=0;j<nr_class;j++) {
-                fprintf(output," %g",prob_estimates[j]);
                 prediction_[ii].push_back(prob_estimates[j]);
             }
-            fprintf(output,"\n");
         }
         else
         {
             predict_label = svm_predict(model_,prob_.x[ii]);
-            fprintf(output,"%g\n",predict_label);
             prediction_[ii].push_back(predict_label);
         }
 
@@ -648,15 +618,11 @@ std::vector<double> pcl::SvmPredict::predict(pcl::svmData in){
      
   assert(model_->l != 0);
 
-    if (predict_probability)
-        if (svm_check_probability_model(model_)==0)
-        {
-            fprintf(stderr,"\nModel does not support probabiliy estimates\n");
-            exit(1);
-        }
-        else
-            if (svm_check_probability_model(model_)!=0)
-                printf("\nModel supports probability estimates, but disabled in prediction.\n");
+    if (predict_probability && !svm_check_probability_model(model_))
+      fprintf(stderr,"\nModel does not support probabiliy estimates\n");
+    
+    if (!predict_probability && svm_check_probability_model(model_))
+      printf("\nModel supports probability estimates, but disabled in prediction.\n");
 
     int svm_type=svm_get_svm_type(model_);
     int nr_class=svm_get_nr_class(model_);
@@ -735,4 +701,29 @@ void pcl::SvmPredict::scaleProblem(svm_problem *input, svm_scaling scaling) {
     }
 }
 
+void pcl::SvmPredict::savePrediction(const char *filename) {
+  
+  assert(prediction_.size() > 0);
+  assert(model_->l > 0);
+  
+    std::ofstream output;
+    output.open(filename);
+
+    int nr_class=svm_get_nr_class(model_);
+    int *labels=(int *) malloc(nr_class*sizeof(int));
+    svm_get_labels(model_,labels);
+    output << "labels ";
+    for (int j=0 ; j < nr_class; j++)
+      output << labels[j] << " ";
+    
+    output << "\n";
+
+    for (int i=0; i<prediction_.size(); i++) {
+        for (int j=0; j<prediction_[i].size(); j++)
+            output << prediction_[i][j] << " ";
+
+        output << "\n";
+    }
+    output.close();
+}
 #endif //SVM_WRAPPER_impl_libSVM_

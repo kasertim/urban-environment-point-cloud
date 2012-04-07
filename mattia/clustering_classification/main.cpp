@@ -45,13 +45,15 @@ int main(int argc, char **argv) {
         return 0;
     if (pcl::io::loadPCDFile (argv[2], *good_cloud))
         return 0;
-
+    
+    rgA.setInputCloud (noise_cloud);
+    rgB.setInputCloud (good_cloud);
     // Extracting normals
     if (atof(argv[4]) > 0) {
         rgA.setEpsAngle(atof(argv[4]));
         pcl::NormalEstimation<PointType, pcl::Normal> ne;
         ne.setInputCloud (noise_cloud);
-        pcl::search::KdTree<PointType>::Ptr tree (new pcl::search::KdTree<PointType> ());
+        pcl::search::KdTree<PointType>::Ptr tree (new pcl::search::KdTree<PointType> (false));
         ne.setSearchMethod (tree);
         ne.setKSearch (atof(argv[3]));
         ne.compute (*noise_normals);
@@ -69,7 +71,7 @@ int main(int argc, char **argv) {
 
     // Create the clusters
     cout << "Clustering noisy points...";
-    rgA.setInputCloud (noise_cloud);
+
     rgA.setGrowingDistance(atof(argv[3]));
     rgA.cluster (&clusteredNoisyIndices);
     cout << "done. Found: " << clusteredNoisyIndices.size()<< " clusters." << endl;
@@ -79,7 +81,7 @@ int main(int argc, char **argv) {
     cout << "done." << endl;
 
     cout << "Clustering good points...";
-    rgB.setInputCloud (good_cloud);
+
     rgB.setGrowingDistance(atof(argv[3]));
     rgB.cluster (&clusteredGoodIndices);
     cout << "done. Found: " << clusteredGoodIndices.size()<< " clusters."<< endl;
@@ -128,6 +130,7 @@ int main(int argc, char **argv) {
     train.train();
     train.saveProblemNorm("theatrea");
     train.saveProblem("theatreb");
+    train.saveModel("output.model");
 
     pcl::SvmPredict pred;
     pred.setInputModel(train.getOutputModel());
@@ -139,13 +142,14 @@ int main(int argc, char **argv) {
     pcl::PointCloud<PointType>::Ptr buff_cloud (new pcl::PointCloud<PointType>);
     pcl::PointCloud<PointType>::Ptr output_cloud (new pcl::PointCloud<PointType>);
 
-
+ std::vector< std::vector<double> > prediction;
+ prediction = pred.getPrediction();
 
     for (int i=0; i<clusteredTotalIndices.size(); i++) {
         pcl::copyPointCloud(*total_cloud, clusteredTotalIndices[i].operator*(), *buff_cloud);
         int j;
         for (j=0; j<buff_cloud->size();j++)
-            if (pred.prediction_[i][0]==1) {
+            if (prediction[i][0]==1) {
                 buff_cloud->points[j].intensity = 255;
             }
             else {

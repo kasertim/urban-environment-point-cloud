@@ -73,12 +73,15 @@ int main(int argc, char **argv) {
         pred.predict();
         cout << "done." << endl;
 
-	// Save the results
+        std::vector< std::vector<double> > prediction;
+        prediction = pred.getPrediction();
+
+        // Save the results
         for (int i=0; i<clusteredIndices.size(); i++) {
             pcl::copyPointCloud(*input_cloud, clusteredIndices[i].operator*(), *buff_cloud);
             int j;
             for (j=0; j<buff_cloud->size();j++)
-                if (pred.prediction_[i][0]==1) {
+                if (prediction[i][0]==1) {
                     buff_cloud->points[j].intensity = 255;
                 }
                 else {
@@ -100,23 +103,27 @@ int main(int argc, char **argv) {
       test.SV[1].idx = 5;
       test.SV[1].value = 0.35;
       
+      pred.setProbabilityEstimates(1);
         pred.loadProblem(argv[1]);
         cout << "Computing classification..." ;
         pred.predict();
-	cout << " a" << endl;
 	pred.prediction_test();
-	
+	pred.savePrediction("prediction");	
 	std::vector<double> out;
 	out =  pred.predict(test);
 	cout << "Single prediction: ";
 	for(int i = 0 ; i < out.size(); i++)
-	  cout << out[i]<< " " << endl;
+	  cout << out[i]<< " ";
 	
-        cout << "done." << endl;
+        cout << "\ndone." << endl;
 	//cout << "va "<< pred.prob_.l << endl;
 
         pred.saveProblem("ab");
         pred.saveProblemNorm("ba");
+	
+	pred.saveModel("output.model.2");
+	
+
 
         return 0;
     }
