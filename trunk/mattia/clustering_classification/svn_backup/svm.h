@@ -24,11 +24,7 @@ struct svm_problem
 
 struct svm_scaling
 {
-  // index = 1 if usable, index = 0 if not
   struct svm_node *obj;
-  
-  // max features scaled
-  int max;
 };
 
 enum { C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR };	/* svm_type */
@@ -77,6 +73,8 @@ struct svm_model
 	/* XXX */
 	int free_sv;		/* 1 if svm_model is created by svm_load_model*/
 				/* 0 if svm_model is created by svm_train */
+				
+	int n_features;         /* max number of features */
 				
 	/* for scaling */
 	struct svm_node *scaling;

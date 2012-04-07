@@ -21,7 +21,7 @@ Name=clust_class
 Type=Native Application
 
 [Launch][Launch Configuration 0][Data]
-Arguments=noisy_points.pcd good_points.pcd 50 output.pcd \n
+Arguments=cropped_leaves.pcd noisy_points.pcd 20 0 output.pcd\n
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing
 EnvironmentGroup=default
@@ -39,7 +39,7 @@ Name=test_predictor
 Type=Native Application
 
 [Launch][Launch Configuration 1][Data]
-Arguments=cropped_ghosts.pcd output_delete55.pcd 50
+Arguments=theatre.model output_delete55.pcd 50
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing
 EnvironmentGroup=default
