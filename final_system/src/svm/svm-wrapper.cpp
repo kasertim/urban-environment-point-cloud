@@ -715,11 +715,14 @@ void pcl::SvmClassify::savePrediction(const char *filename) {
     int nr_class=svm_get_nr_class(model_);
     int *labels=(int *) malloc(nr_class*sizeof(int));
     svm_get_labels(model_,labels);
-    output << "labels ";
-    for (int j=0 ; j < nr_class; j++)
-        output << labels[j] << " ";
+    
+    if (predict_probability) {
+        output << "labels ";
+        for (int j=0 ; j < nr_class; j++)
+            output << labels[j] << " ";
 
-    output << "\n";
+        output << "\n";
+    }
 
     for (int i=0; i<prediction_.size(); i++) {
         for (int j=0; j<prediction_[i].size(); j++)

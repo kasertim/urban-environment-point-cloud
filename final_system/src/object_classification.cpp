@@ -39,14 +39,17 @@
 #include <boost/thread/thread.hpp>
 #include <pcl/visualization/cloud_viewer.h>
 
+// Display single cluster asking for an user input. It can be 0 for good cluster, 1 for ghosts, 2 for trees.
 int getInputLabel(const pcl::PointCloud<PointType>::Ptr cloud_in,
                   pcl::IndicesPtr indices_,
                   int i,
                   int n_clusters_,
                   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer);
 
+// Initialize the Visualizer
 void initVisualizer(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer);
 
+// Get an input key pressed, and store in stop_void whether 0, 1 or 2 is pressed
 void keyboardEventOccurred ( const pcl::visualization::KeyboardEvent &event, void* stop_void );
 
 // TODO The function checks for the existence of an existing model. If it fails to load the model, it start a new training procedure of the classifier.
@@ -67,8 +70,8 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
     pcl::SvmTrain ml_svm_training; // To train the classifier
     pcl::SvmClassify ml_svm_classify; // To classify
 
-    // Create the input vector for the SVM class
-    std::vector<pcl::svmData> featuresSet;
+    std::vector<pcl::svmData> featuresSet; // Create the input vector for the SVM class
+    std::vector< std::vector< double > > predictionOut; // Prediction output vector
 
 
     // If the input model_filename exists, it starts the classification.
@@ -130,7 +133,40 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
         ml_svm_classify.prediction_test();
     }
 
-    ml_svm_classify.savePrediction("prediction");
+    ml_svm_classify.savePrediction("prediction"); // save prediction in outputtext file
+    ml_svm_classify.getPrediction(predictionOut);
+    
+    // Get labels order
+    std::vector<int> labels;
+    ml_svm_classify.getLabel(labels);
+    
+    // Store the boolean output inside clusters_data
+    for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it) 
+      switch((int)predictionOut[c_it][0]){
+	case 0: (*clusters_data)[c_it].is_good = true; break;
+	case 1: (*clusters_data)[c_it].is_ghost = true; break;
+	case 2: (*clusters_data)[c_it].is_tree = true; break;
+      }
+    
+    // Store the percentage output inside cluster_data
+    for(size_t lab = 0; lab < labels.size(); lab++)
+      switch(labels[lab]){
+        case 0:
+            for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it) {
+	      (*clusters_data)[c_it].is_good_prob = predictionOut[c_it][lab + 1];
+            }
+            break;
+	case 1:
+	  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it) {
+	      (*clusters_data)[c_it].is_ghost_prob = predictionOut[c_it][lab + 1];
+            }
+            break;
+	case 2:
+	  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it) {
+	      (*clusters_data)[c_it].is_tree_prob = predictionOut[c_it][lab + 1];
+            }
+            break;
+      }
 }
 
 void initVisualizer(boost::shared_ptr< pcl::visualization::PCLVisualizer > viewer)
@@ -145,7 +181,7 @@ void initVisualizer(boost::shared_ptr< pcl::visualization::PCLVisualizer > viewe
     viewer->camera_.pos[0]=8000;
     viewer->camera_.pos[1]=20000;
     viewer->camera_.pos[2]=2500;
-    viewer->addText("Input the label for the displayed cluster: \n 0 : Isolated Points\n 1 : Ghost Points\n 2 : Vegetation Points",
+    viewer->addText("Input the label for the displayed cluster: \n 0 : Good Points\n 1 : Ghost Points\n 2 : Vegetation Points",
                     20, 300, "user"
                    );
     viewer->updateCamera();

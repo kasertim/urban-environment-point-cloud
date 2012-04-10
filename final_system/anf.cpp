@@ -67,13 +67,17 @@ struct ClusterData
 {
   pcl::IndicesPtr indices;
   pcl::svmData features;
+  // Classification bool
+  bool is_isolated, is_good, is_tree, is_ghost;
+  
   // Classification probabilities
-  float is_isolated, is_tree, is_ghost;
+  float is_good_prob, is_tree_prob, is_ghost_prob;
 
   ClusterData () :
     indices (new std::vector<int>),
     features (),
-    is_isolated (0.0), is_tree (0.0), is_ghost (0.0)
+    is_isolated(false), is_good (false), is_tree (false), is_ghost (false),
+    is_good_prob(0.0), is_tree_prob(0.0), is_ghost_prob(0.0)
   {}
 };
 
