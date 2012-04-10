@@ -125,7 +125,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_highlight (stderr, "Computing (4/6): Cluster information ");
   tt.tic ();
 
-  gatherClusterInformation (cloud_in, clusters_data, &global_data);
+  gatherClusterInformation (cloud_in, clusters_data, global_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
