@@ -60,10 +60,16 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
     if ( ml_svm_classify.loadModel(model_filename)) {
         pcl::console::print_highlight (stderr, "Loaded ");
         pcl::console::print_value (stderr, "%s ", model_filename);
+	ml_svm_classify.setInputTrainingSet(global_data.features);
+	ml_svm_classify.saveProblem("normal");
+	ml_svm_classify.saveProblemNorm("normalized");
+	ml_svm_classify.predict();
     } else {
-      ml_svm_classify.setInputTrainingSet( global_data.features );
-      //ml_svm_classify.saveProblemNorm("normalized");
-      ml_svm_classify.saveProblem("normal");
+      ml_svm_training.setInputTrainingSet( global_data.features );
+      ml_svm_training.saveProblem("normal");
+      ml_svm_training.saveProblemNorm("normalized");
+      ml_svm_training.train();
+      ml_svm_training.saveModel(model_filename);
     }
   
 //   // Passthrough example: every cluster that has features[0] > 0.5 will be classified as ghost
