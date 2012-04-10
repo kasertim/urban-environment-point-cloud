@@ -35,18 +35,39 @@
  *
  */
 
+#include "../svm_wrapper.h"
+
+// TODO The function checks for the existence of an existing model. If it fails to load the model, it start a new training procedure of the classifier.
+
 /** \brief The machine learning classifier, results are stored in the ClusterData structs.
   * \param[in] cloud_in A pointer to the input point cloud.
   * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
+  * \param[in] model_filename Filename of the classifier model.
   * \param[in/out] clusters_data An array of information holders for each cluster
   */
 void
 applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
                            GlobalData global_data,
-                           boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
+                           boost::shared_ptr<std::vector<ClusterData> > &clusters_data,
+			   const char *model_filename  )
 {
-  // Passthrough example: every cluster that has features[0] > 0.5 will be classified as ghost
-  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-    if ((*clusters_data)[c_it].features[0] > 0.5)
-      (*clusters_data)[c_it].is_ghost = true;
+  // Set up the machine learnin class
+  pcl::SvmTrain ml_svm_training; // To train the classifier
+  pcl::SvmClassify ml_svm_classify; // To classify
+  
+  // If the input model_filename exists, it starts the classification. 
+  // Otherwise it starts a new machine learning training.
+    if ( ml_svm_classify.loadModel(model_filename)) {
+        pcl::console::print_highlight (stderr, "Loaded ");
+        pcl::console::print_value (stderr, "%s ", model_filename);
+    } else {
+      ml_svm_classify.setInputTrainingSet( global_data.features );
+      //ml_svm_classify.saveProblemNorm("normalized");
+      ml_svm_classify.saveProblem("normal");
+    }
+  
+//   // Passthrough example: every cluster that has features[0] > 0.5 will be classified as ghost
+//   for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
+//     if ((*clusters_data)[c_it].features[0] > 0.5)
+//       (*clusters_data)[c_it].is_ghost = true;
 }
