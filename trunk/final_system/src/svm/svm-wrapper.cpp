@@ -125,7 +125,7 @@ void pcl::SvmTrain::scaleFactors(std::vector<svmData> trainingSet, svm_scaling *
             if (trainingSet[i].SV[j].idx > max )
                 max = trainingSet[i].SV[j].idx;
 
-	    max+=1;
+    max+=1;
     scaling->obj = Malloc(struct svm_node,max+1);
 
     scaling->obj[max].index = -1;
@@ -139,10 +139,10 @@ void pcl::SvmTrain::scaleFactors(std::vector<svmData> trainingSet, svm_scaling *
 
         for (int j=0; j < trainingSet[i].SV.size(); j++)
 
-            if ( module(trainingSet[i].SV[j].value) > scaling->obj[ trainingSet[i].SV[j].idx ].value ){
-	      scaling->obj[ trainingSet[i].SV[j].idx ].index = 1;
-              scaling->obj[ trainingSet[i].SV[j].idx ].value = module(trainingSet[i].SV[j].value);
-	    }
+            if ( module(trainingSet[i].SV[j].value) > scaling->obj[ trainingSet[i].SV[j].idx ].value ) {
+                scaling->obj[ trainingSet[i].SV[j].idx ].index = 1;
+                scaling->obj[ trainingSet[i].SV[j].idx ].value = module(trainingSet[i].SV[j].value);
+            }
 };
 
 void pcl::SVM::adaptLibSVMToInput(std::vector<svmData> *trainingSet, svm_problem prob) {
@@ -153,9 +153,9 @@ void pcl::SVM::adaptLibSVMToInput(std::vector<svmData> *trainingSet, svm_problem
     {
         svmData parent;
         int j=0;
-	
-	if(labelledTrainingSet_)
-	  parent.label=&prob.y[i];
+
+        if (labelledTrainingSet_)
+            parent.label=&prob.y[i];
 
         while (prob.x[i][j].index != -1) {
             svmDataPoint seed;
@@ -171,27 +171,27 @@ void pcl::SVM::adaptLibSVMToInput(std::vector<svmData> *trainingSet, svm_problem
 };
 
 void pcl::SVM::adaptInputToLibSVM(std::vector<svmData> trainingSet, svm_problem *prob) {
-  assert(trainingSet_.size() > 0);
-  assert(model_ != NULL);
-  if(model_ == NULL){ // to be sure to have loaded the scaling
+    assert(trainingSet_.size() > 0);
+    assert(model_ != NULL);
+    if (model_ == NULL) { // to be sure to have loaded the scaling
         std::cout << "Can't create a problem whitout loading a model before." << std::endl;
         return;
-  }
-  
-  
+    }
+
+
     prob->l = trainingSet.size(); // n of elements/points
     prob->y = Malloc(double,prob->l);
     prob->x = Malloc(struct svm_node *,prob->l);
 
     for (int i=0; i < prob->l; i++)
     {
-      
-      if(trainingSet[i].label != NULL){
-        prob->y[i] = *trainingSet[i].label; // label 0 for noise, 1 for good
-        labelledTrainingSet_ = 1;
-      } else
-	labelledTrainingSet_ = 0;
-        
+
+        if (trainingSet[i].label != NULL) {
+            prob->y[i] = *trainingSet[i].label; // label 0 for noise, 1 for good
+            labelledTrainingSet_ = 1;
+        } else
+            labelledTrainingSet_ = 0;
+
         prob->x[i] = Malloc(struct svm_node,trainingSet[i].SV.size()+1);
         int k=0;
 
@@ -249,9 +249,9 @@ bool pcl::SVM::loadProblem(const char *filename, svm_problem *prob)
 {
     int elements, max_index, inst_max_index, i, j;
     FILE *fp = fopen(filename,"r");
-    
-    if(fp==NULL) return 0;
-    
+
+    if (fp==NULL) return 0;
+
     char *endptr;
     char *idx, *val, *label;
 
@@ -392,16 +392,19 @@ bool pcl::SVM::loadProblem(const char *filename, svm_problem *prob)
 
 
 bool pcl::SVM::saveProblem(const char *filename, bool labelled = 0) {
-  assert(trainingSet_.size() > 0);
+    assert(trainingSet_.size() > 0);
     std::ofstream myfile;
     myfile.open (filename);
-    
+
     if (!myfile.is_open()) return 0;
-    
+
     for (int j=0; j < trainingSet_.size() ; j++)
     {
-        if (labelled)
+
+        if (labelled) {
+            assert(trainingSet_[j].label != NULL);
             myfile << *trainingSet_[j].label << " ";
+        }
 
         for (int i=0; i < trainingSet_[j].SV.size(); i++)
             if (std::isfinite( trainingSet_[j].SV[i].value) )
@@ -421,9 +424,9 @@ bool pcl::SVM::saveProblemNorm(const char *filename, svm_problem prob_, bool lab
     }
     std::ofstream myfile;
     myfile.open (filename);
-    
+
     if (!myfile.is_open()) return 0;
-    
+
     for (int j=0; j < prob_.l ; j++)
     {
         if (labelled)
@@ -449,7 +452,7 @@ bool pcl::SvmClassify::loadModel(const char *filename) {
         return 0;
     }
     scaling_.obj = model_->scaling;
-    
+
     int i=0;
     while (model_->scaling[i].index != -1)
         i++;
@@ -559,10 +562,10 @@ void pcl::SvmClassify::predict()
     assert(prob_.l != 0);
 
     if (predict_probability && !svm_check_probability_model(model_))
-      fprintf(stderr,"\nModel does not support probabiliy estimates\n");
-    
+        fprintf(stderr,"\nModel does not support probabiliy estimates\n");
+
     if (!predict_probability && svm_check_probability_model(model_))
-      printf("\nModel supports probability estimates, but disabled in prediction.\n");
+        printf("\nModel supports probability estimates, but disabled in prediction.\n");
 
     int correct = 0;
     int total = 0;
@@ -613,15 +616,15 @@ void pcl::SvmClassify::predict()
         free(prob_estimates);
 }
 
-std::vector<double> pcl::SvmClassify::predict(pcl::svmData in){
-     
-  assert(model_->l != 0);
+std::vector<double> pcl::SvmClassify::predict(pcl::svmData in) {
+
+    assert(model_->l != 0);
 
     if (predict_probability && !svm_check_probability_model(model_))
-      fprintf(stderr,"\nModel does not support probabiliy estimates\n");
-    
+        fprintf(stderr,"\nModel does not support probabiliy estimates\n");
+
     if (!predict_probability && svm_check_probability_model(model_))
-      printf("\nModel supports probability estimates, but disabled in prediction.\n");
+        printf("\nModel supports probability estimates, but disabled in prediction.\n");
 
     int svm_type=svm_get_svm_type(model_);
     int nr_class=svm_get_nr_class(model_);
@@ -632,15 +635,15 @@ std::vector<double> pcl::SvmClassify::predict(pcl::svmData in){
     svm_node *buff;
     buff=Malloc(struct svm_node, in.SV.size()+10);
     int i=0;
-    for(i; i<in.SV.size(); i++){
-      buff[i].index = in.SV[i].idx;
-      if(in.SV[i].idx < scaling_.max  && scaling_.obj[in.SV[i].idx].index == 1)
-	buff[i].value = in.SV[i].value/scaling_.obj[in.SV[i].idx].value;
-      else
-	buff[i].value = in.SV[i].value;
+    for (i; i<in.SV.size(); i++) {
+        buff[i].index = in.SV[i].idx;
+        if (in.SV[i].idx < scaling_.max  && scaling_.obj[in.SV[i].idx].index == 1)
+            buff[i].value = in.SV[i].value/scaling_.obj[in.SV[i].idx].value;
+        else
+            buff[i].value = in.SV[i].value;
     }
     buff[i].index = -1;
-    
+
     // clean the prediction vector
     prediction_.clear();
 
@@ -655,25 +658,25 @@ std::vector<double> pcl::SvmClassify::predict(pcl::svmData in){
     }
     prediction_.resize(1);
 
-        double predict_label;
-        if (predict_probability && (svm_type==C_SVC || svm_type==NU_SVC))
-        {
-            predict_label = svm_predict_probability(model_,buff,prob_estimates);
-            prediction_[0].push_back(predict_label);
-            for (j=0;j<nr_class;j++) {
-                prediction_[0].push_back(prob_estimates[j]);
-            }
+    double predict_label;
+    if (predict_probability && (svm_type==C_SVC || svm_type==NU_SVC))
+    {
+        predict_label = svm_predict_probability(model_,buff,prob_estimates);
+        prediction_[0].push_back(predict_label);
+        for (j=0;j<nr_class;j++) {
+            prediction_[0].push_back(prob_estimates[j]);
         }
-        else
-        {
-            predict_label = svm_predict(model_,buff);
-            prediction_[0].push_back(predict_label);
-        }
-    
+    }
+    else
+    {
+        predict_label = svm_predict(model_,buff);
+        prediction_[0].push_back(predict_label);
+    }
+
 
     if (predict_probability)
         free(prob_estimates);
-    
+
     free(buff);
     return prediction_[0];
 
@@ -681,8 +684,8 @@ std::vector<double> pcl::SvmClassify::predict(pcl::svmData in){
 
 void pcl::SvmClassify::scaleProblem(svm_problem *input, svm_scaling scaling) {
 
-  assert(model_->l != 0);
-  assert(scaling_.max != 0);
+    assert(model_->l != 0);
+    assert(scaling_.max != 0);
 
     for (int i=0;i<input->l;i++)
     {
@@ -701,10 +704,10 @@ void pcl::SvmClassify::scaleProblem(svm_problem *input, svm_scaling scaling) {
 }
 
 void pcl::SvmClassify::savePrediction(const char *filename) {
-  
-  assert(prediction_.size() > 0);
-  assert(model_->l > 0);
-  
+
+    assert(prediction_.size() > 0);
+    assert(model_->l > 0);
+
     std::ofstream output;
     output.open(filename);
 
@@ -713,8 +716,8 @@ void pcl::SvmClassify::savePrediction(const char *filename) {
     svm_get_labels(model_,labels);
     output << "labels ";
     for (int j=0 ; j < nr_class; j++)
-      output << labels[j] << " ";
-    
+        output << labels[j] << " ";
+
     output << "\n";
 
     for (int i=0; i<prediction_.size(); i++) {
