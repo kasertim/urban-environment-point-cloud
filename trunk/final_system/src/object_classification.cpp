@@ -39,6 +39,8 @@
 #include <boost/thread/thread.hpp>
 #include <pcl/visualization/cloud_viewer.h>
 
+// TODO: We have only few cluster to work on. The classifier need more samples to perform a better training. We will prepare a k-nearest search to avoid the problem.
+
 // Display single cluster asking for an user input. It can be 0 for good cluster, 1 for ghosts, 2 for trees.
 int getInputLabel(const pcl::PointCloud<PointType>::Ptr cloud_in,
                   pcl::IndicesPtr indices_,
@@ -96,8 +98,12 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
         boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer ( new pcl::visualization::PCLVisualizer ( "Cluster Viewer" ) );
         initVisualizer(viewer);
 
-        // Checks an user input for each cluster. Stores the input in the label field
+        // Checks an user input for each cluster. Stores the input in the label field-
+	// If a cluster is already marked as isolated, it will not be used to train the classifier and it's automatically labelled as zero (as good point)
         for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it) {
+	  if((*clusters_data)[c_it].is_isolated)
+	    (*clusters_data)[c_it].features.label = 0;
+	  else
             (*clusters_data)[c_it].features.label =
                 new double( (double)getInputLabel(cloud_in, (*clusters_data)[c_it].indices, c_it+1, clusters_data->size (), viewer));
         }
