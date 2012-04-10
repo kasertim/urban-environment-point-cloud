@@ -210,8 +210,10 @@ public:
 
     bool loadModel(const char *filename);
     
-    std::vector< std::vector<double> > getPrediction(){
-      return prediction_;
+    void getPrediction( std::vector< std::vector<double> > &out ){
+      out.clear();
+      out.insert(out.begin(), prediction_.begin(), prediction_.end());
+      //return prediction_;
     }
     
     void savePrediction(const char *filename);
@@ -254,6 +256,14 @@ public:
     void prediction_test();
 
     void predict();
+    
+    void getLabel(std::vector<int> &labels){
+      int nr_class=svm_get_nr_class(model_);
+      int *labels_=(int *) malloc(nr_class*sizeof(int));
+      svm_get_labels(model_,labels_);
+      for (int j=0 ; j < nr_class; j++)
+	labels.push_back(labels_[j]);
+    };
     
     std::vector<double> predict(svmData in);
 
