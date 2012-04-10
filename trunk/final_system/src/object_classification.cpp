@@ -55,17 +55,22 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
   pcl::SvmTrain ml_svm_training; // To train the classifier
   pcl::SvmClassify ml_svm_classify; // To classify
   
+  // Create the input vector for the SVM class
+  std::vector<pcl::svmData> featuresSet;
+  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
+    featuresSet.push_back( (*clusters_data)[c_it].features );
+  
   // If the input model_filename exists, it starts the classification. 
   // Otherwise it starts a new machine learning training.
     if ( ml_svm_classify.loadModel(model_filename)) {
         pcl::console::print_highlight (stderr, "Loaded ");
         pcl::console::print_value (stderr, "%s ", model_filename);
-	ml_svm_classify.setInputTrainingSet(global_data.features);
+	ml_svm_classify.setInputTrainingSet(featuresSet);
 	ml_svm_classify.saveProblem("normal");
 	ml_svm_classify.saveProblemNorm("normalized");
 	ml_svm_classify.predict();
     } else {
-      ml_svm_training.setInputTrainingSet( global_data.features );
+      ml_svm_training.setInputTrainingSet( featuresSet );
       ml_svm_training.saveProblem("normal");
       ml_svm_training.saveProblemNorm("normalized");
       ml_svm_training.train();

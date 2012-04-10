@@ -32,7 +32,9 @@ public:
     double *label;
     std::vector<pcl::svmDataPoint> SV;
     
-    svmData() : label(NULL) {};
+    svmData() : label(NULL) {
+      SV.clear();
+    };
 };
 
 class SVM {
