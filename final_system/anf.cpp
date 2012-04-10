@@ -39,6 +39,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/console/parse.h>
 #include <pcl/console/time.h>
+#include "svm_wrapper.h"
 
 // The point type used
 typedef pcl::PointXYZI PointType;
@@ -50,6 +51,7 @@ struct GlobalData
   float x_min, y_min, z_min, i_min, x_size, y_size, z_size, i_size;
   float density, scale;
   int cardinality;
+  std::vector<pcl::svmData> features;
 
   GlobalData () :
     indices (new std::vector<int>),
@@ -57,7 +59,7 @@ struct GlobalData
     z_min (std::numeric_limits<float>::max ()), i_min (std::numeric_limits<float>::max ()),
     x_size (std::numeric_limits<float>::min ()), y_size (std::numeric_limits<float>::min ()),
     z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
-    density (), scale (), cardinality ()
+    density (), scale (), cardinality (), features ()
   {}
 };
 
@@ -65,12 +67,12 @@ struct GlobalData
 struct ClusterData
 {
   pcl::IndicesPtr indices;
-  std::vector<float> features;
+  //std::vector<float> features;
   bool is_isolated, is_tree, is_ghost;
 
   ClusterData () :
     indices (new std::vector<int>),
-    features (),
+    //features (),
     is_isolated (false), is_tree (false), is_ghost (false)
   {}
 };
@@ -84,7 +86,7 @@ struct ClusterData
 #include "src/noise_filtering.cpp"
 
 void
-compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType>::Ptr &cloud_out, float scale)
+compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType>::Ptr &cloud_out, float scale, const char *model=NULL)
 {
   pcl::console::TicToc tt;
   pcl::console::print_highlight (stderr, "Computing (1/6): Global information ");
@@ -123,7 +125,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_highlight (stderr, "Computing (4/6): Cluster information ");
   tt.tic ();
 
-  gatherClusterInformation (cloud_in, global_data, clusters_data);
+  gatherClusterInformation (cloud_in, clusters_data, &global_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
@@ -131,7 +133,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_highlight (stderr, "Computing (5/6): Object classification ");
   tt.tic ();
 
-  applyObjectClassification (cloud_in, global_data, clusters_data);
+  applyObjectClassification (cloud_in, global_data, clusters_data, model);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
@@ -186,6 +188,7 @@ printHelp (char **argv)
   pcl::console::print_error ("Correct syntax: ");
   pcl::console::print_value ("%s input.pcd output.pcd <options>\n", argv[0]);
   pcl::console::print_info ("Options:\n -scale x   x = the distance of one meter\n");
+  pcl::console::print_info (" -model filename   filename = the classifier model filename\n");
 }
 
 int
@@ -203,7 +206,10 @@ main (int argc, char** argv)
 
   // Parse other arguments
   float scale = 1500.0;
+  std::string model = argv[arg_indices[0]];
+  model.append(".model");
   pcl::console::parse_argument (argc, argv, "-scale", scale);
+  pcl::console::parse_argument (argc, argv, "-model", model);
 
   // Load input cloud
   pcl::PointCloud<PointType>::Ptr cloud_in (new pcl::PointCloud<PointType>);
@@ -212,7 +218,7 @@ main (int argc, char** argv)
 
   // Computation
   pcl::PointCloud<PointType>::Ptr cloud_out (new pcl::PointCloud<PointType>);
-  compute (cloud_in, cloud_out, scale);
+  compute (cloud_in, cloud_out, scale, model.data());
 
   // Save output cloud
   saveCloud (argv[arg_indices[1]], cloud_out);
