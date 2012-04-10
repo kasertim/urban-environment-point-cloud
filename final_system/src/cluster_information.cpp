@@ -59,44 +59,42 @@ Eigen::Vector3f pca(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPt
 
 /** \brief Estimates features for each cluster, required for classifying each cluster.
   * \param[in] cloud_in A pointer to the input point cloud.
-  * \param[in] clusters_data An array of information holders for each cluster
-  * \param[out] global_data A struct holding information on the full point cloud, global input parameters and clusters features.
+  * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
+  * \param[out] clusters_data An array of information holders for each cluster
+  * 
   */
 void
 gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
-                          boost::shared_ptr<std::vector<ClusterData> > &clusters_data,
-                          GlobalData &global_data)
+                          GlobalData global_data,
+                          boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
 {
-  // Calculated features will be saves inside global_data.features
-    global_data.features.clear();
-    global_data.features.resize (clusters_data->size ());
-
     //For each cluster, point data features are calculates
     for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
     {
         pcl::svmDataPoint data; // Temp object
+        (*clusters_data)[c_it].features.SV.clear(); // Reset the current features
 	
 	// Save carcinality
 	data.idx = 0;
 	data.value = cardinality((*clusters_data)[c_it].indices);
-	global_data.features[c_it].SV.push_back(data);
+	(*clusters_data)[c_it].features.SV.push_back(data);
 	
 	// Save mean intensity
 	data.idx = 1;
 	data.value = mean_intensity(cloud_in, (*clusters_data)[c_it].indices);
-	global_data.features[c_it].SV.push_back(data);
+	(*clusters_data)[c_it].features.SV.push_back(data);
 	
 	// Eigen Value Decomposition module
 	data.idx = 2;
 	data.value = EVD(cloud_in, (*clusters_data)[c_it].indices);
 	if(data.value != 0.0 && std::isfinite(data.value) ) 
-	  global_data.features[c_it].SV.push_back(data);
+	  (*clusters_data)[c_it].features.SV.push_back(data);
 	
 	// Save point density inside a bounding box
 	data.idx = 3;
 	data.value = density(cloud_in, (*clusters_data)[c_it].indices);
 	if(data.value != 0.0 && std::isfinite(data.value) ) 
-	  global_data.features[c_it].SV.push_back(data);
+	  (*clusters_data)[c_it].features.SV.push_back(data);
 	
 	// Extract Principal Component analisys and save the first two normalized eigenvalues
 	Eigen::Vector3f eig;
@@ -105,12 +103,12 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
 	data.idx = 4;
 	data.value = eig[0];
 	if(data.value != 0.0 && std::isfinite(data.value) ) 
-	  global_data.features[c_it].SV.push_back(data);
+	  (*clusters_data)[c_it].features.SV.push_back(data);
 	
 	data.idx = 5;
 	data.value = eig[1];
 	if(data.value != 0.0 && std::isfinite(data.value) ) 
-	  global_data.features[c_it].SV.push_back(data);
+	  (*clusters_data)[c_it].features.SV.push_back(data);
 
     }
 }

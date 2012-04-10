@@ -51,7 +51,6 @@ struct GlobalData
   float x_min, y_min, z_min, i_min, x_size, y_size, z_size, i_size;
   float density, scale;
   int cardinality;
-  std::vector<pcl::svmData> features;
 
   GlobalData () :
     indices (new std::vector<int>),
@@ -59,7 +58,7 @@ struct GlobalData
     z_min (std::numeric_limits<float>::max ()), i_min (std::numeric_limits<float>::max ()),
     x_size (std::numeric_limits<float>::min ()), y_size (std::numeric_limits<float>::min ()),
     z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
-    density (), scale (), cardinality (), features ()
+    density (), scale (), cardinality ()
   {}
 };
 
@@ -67,12 +66,12 @@ struct GlobalData
 struct ClusterData
 {
   pcl::IndicesPtr indices;
-  //std::vector<float> features;
+  pcl::svmData features;
   bool is_isolated, is_tree, is_ghost;
 
   ClusterData () :
     indices (new std::vector<int>),
-    //features (),
+    features (),
     is_isolated (false), is_tree (false), is_ghost (false)
   {}
 };
@@ -125,7 +124,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_highlight (stderr, "Computing (4/6): Cluster information ");
   tt.tic ();
 
-  gatherClusterInformation (cloud_in, clusters_data, global_data);
+  gatherClusterInformation (cloud_in, global_data, clusters_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
