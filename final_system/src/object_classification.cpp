@@ -36,6 +36,18 @@
  */
 
 #include "../svm_wrapper.h"
+#include <boost/thread/thread.hpp>
+#include <pcl/visualization/cloud_viewer.h>
+
+int getInputLabel(const pcl::PointCloud<PointType>::Ptr cloud_in,
+                  pcl::IndicesPtr indices_,
+                  int i,
+                  int n_clusters_,
+                  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer);
+
+void initVisualizer(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer);
+
+void keyboardEventOccurred ( const pcl::visualization::KeyboardEvent &event, void* stop_void );
 
 // TODO The function checks for the existence of an existing model. If it fails to load the model, it start a new training procedure of the classifier.
 
@@ -49,36 +61,155 @@ void
 applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in,
                            GlobalData global_data,
                            boost::shared_ptr<std::vector<ClusterData> > &clusters_data,
-			   const char *model_filename  )
+                           const char *model_filename  )
 {
-  // Set up the machine learnin class
-  pcl::SvmTrain ml_svm_training; // To train the classifier
-  pcl::SvmClassify ml_svm_classify; // To classify
-  
-  // Create the input vector for the SVM class
-  std::vector<pcl::svmData> featuresSet;
-  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-    featuresSet.push_back( (*clusters_data)[c_it].features );
-  
-  // If the input model_filename exists, it starts the classification. 
-  // Otherwise it starts a new machine learning training.
+    // Set up the machine learnin class
+    pcl::SvmTrain ml_svm_training; // To train the classifier
+    pcl::SvmClassify ml_svm_classify; // To classify
+
+    // Create the input vector for the SVM class
+    std::vector<pcl::svmData> featuresSet;
+
+
+    // If the input model_filename exists, it starts the classification.
+    // Otherwise it starts a new machine learning training.
     if ( ml_svm_classify.loadModel(model_filename)) {
+      
         pcl::console::print_highlight (stderr, "Loaded ");
         pcl::console::print_value (stderr, "%s ", model_filename);
-	ml_svm_classify.setInputTrainingSet(featuresSet);
-	ml_svm_classify.saveProblem("normal");
-	ml_svm_classify.saveProblemNorm("normalized");
-	ml_svm_classify.predict();
+
+        // Copy the input vector for the SVM classification
+        for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
+            featuresSet.push_back( (*clusters_data)[c_it].features );
+
+
+        ml_svm_classify.setInputTrainingSet(featuresSet); // Set input clusters set
+        ml_svm_classify.saveProblemNorm("data_input"); //Save clusters features
+        ml_svm_classify.setProbabilityEstimates(1); // Estimates the probabilities
+        ml_svm_classify.predict();
+	
     } else {
-      ml_svm_training.setInputTrainingSet( featuresSet );
-      ml_svm_training.saveProblem("normal");
-      ml_svm_training.saveProblemNorm("normalized");
-      ml_svm_training.train();
-      ml_svm_training.saveModel(model_filename);
+        // Initialize the viewer
+        boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer ( new pcl::visualization::PCLVisualizer ( "Cluster Viewer" ) );
+        initVisualizer(viewer);
+
+        // Checks an user input for each cluster. Stores the input in the label field
+        for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it) {
+            (*clusters_data)[c_it].features.label =
+                new double( (double)getInputLabel(cloud_in, (*clusters_data)[c_it].indices, c_it+1, clusters_data->size (), viewer));
+        }
+
+// 	double labels[] = {2,0,2,1,0,0,0,0,0,1,0,0,0};
+// 	for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it) {
+// 	  (*clusters_data)[c_it].features.label = new double( labels[c_it] );
+// 	}
+	
+        // Close the viewer
+        viewer->close();
+
+        // Copy the input vector for the SVM classification
+        for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it) {
+            featuresSet.push_back( (*clusters_data)[c_it].features );
+        }
+
+        // Setting the training classifier
+        ml_svm_training.setInputTrainingSet( featuresSet ); // Set input training set
+        ml_svm_training.param.probability = 1; // Estimates the probabilities
+        ml_svm_training.param.C = 0.00135; // Initial C value of the classifier
+        ml_svm_training.param.gamma = 0; // Initial gamma value of the classifier
+        ml_svm_training.train(); // Train the classifier
+        ml_svm_training.saveModel(model_filename); // Save classifier model
+        pcl::console::print_highlight (stderr, "Saved ");
+        pcl::console::print_value (stderr, "%s ", model_filename);
+        ml_svm_training.saveProblemNorm("data_input_norm"); // Save clusters features normalized
+
+        // Test the current classification
+        ml_svm_classify.loadModel(model_filename);
+        ml_svm_classify.setInputTrainingSet(featuresSet);
+        ml_svm_classify.setProbabilityEstimates(1);
+        ml_svm_classify.prediction_test();
     }
-  
-//   // Passthrough example: every cluster that has features[0] > 0.5 will be classified as ghost
-//   for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-//     if ((*clusters_data)[c_it].features[0] > 0.5)
-//       (*clusters_data)[c_it].is_ghost = true;
+
+    ml_svm_classify.savePrediction("prediction");
+}
+
+void initVisualizer(boost::shared_ptr< pcl::visualization::PCLVisualizer > viewer)
+{
+    // Setting the initial viewer parameters
+    viewer->initCameraParameters ();
+    viewer->setBackgroundColor (0,0,0);
+    viewer->addCoordinateSystem (1000);
+    viewer->camera_.view[0]=0;
+    viewer->camera_.view[1]=0;
+    viewer->camera_.view[2]=1;
+    viewer->camera_.pos[0]=8000;
+    viewer->camera_.pos[1]=20000;
+    viewer->camera_.pos[2]=2500;
+    viewer->addText("Input the label for the displayed cluster: \n 0 : Isolated Points\n 1 : Ghost Points\n 2 : Vegetation Points",
+                    20, 300, "user"
+                   );
+    viewer->updateCamera();
+}
+
+
+int getInputLabel(const pcl::PointCloud<PointType>::Ptr cloud_in,
+                  pcl::IndicesPtr indices_,
+                  int i,
+                  int n_clusters_,
+                  boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer)
+{
+
+    // Create a point cloud copy with the cluster info
+    pcl::PointCloud<PointType>::Ptr cluster (new pcl::PointCloud<PointType>);
+    pcl::copyPointCloud(*cloud_in, *indices_, *cluster);
+    int stop = -1;
+
+    // Get color handler for the cluster cloud
+    pcl::visualization::PointCloudColorHandlerGenericField<pcl::PointXYZI> rgb(cluster, "intensity");
+    viewer->removeAllPointClouds(); // Clean viewer
+    viewer->addPointCloud<pcl::PointXYZI>(cluster, rgb, "cloud"); // Add the pointcloud
+    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud"); // Set viewer point size
+
+    // update the number of clusters
+    viewer->removeText3D("input");
+    std::stringstream num;
+    num << i << "/" << n_clusters_;
+    viewer->addText( num.str().data(), 1000, 5, "input"
+                   );
+    // Wait 1 sec to reset stardard input of the viewer
+    boost::this_thread::sleep (boost::posix_time::microseconds (1000000));
+
+    // Spin the viewer until 0, 1 or 2 are pressed
+    while (stop == -1 ) {
+        boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+        viewer->registerKeyboardCallback ( keyboardEventOccurred, ( void* ) &stop );
+        viewer->spinOnce (500);
+    }
+
+    // Return the input value
+    return stop;
+}
+
+void keyboardEventOccurred ( const pcl::visualization::KeyboardEvent &event, void* stop_void )
+{
+    int *stop;
+    char *keyPressed = new char[50];
+
+    // Copy the pressed key inside a var
+    sprintf ( keyPressed, "%c" ,event.getKeyCode() );
+    stop=static_cast<int *> ( stop_void );
+
+    // Check if 0, 1 or 2 are pressed and return the value
+    if ( strpbrk ( "012", keyPressed ) )
+    {
+        *stop = atoi(keyPressed);
+        //std::cout << "found " << *stop << std::endl;
+    }
+
+    // Avoiding the window closing with 'q' and 'e'
+    if ( event.getKeyCode() =='q' || event.getKeyCode() =='e' )
+    {
+        //std::cout << "quit " << keyPressed << std::endl;
+        *stop=-1;
+    }
 }

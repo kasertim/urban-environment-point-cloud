@@ -127,6 +127,7 @@ void pcl::SvmTrain::scaleFactors(std::vector<svmData> trainingSet, svm_scaling *
 
     max+=1;
     scaling->obj = Malloc(struct svm_node,max+1);
+    scaling->max = max;
 
     scaling->obj[max].index = -1;
 

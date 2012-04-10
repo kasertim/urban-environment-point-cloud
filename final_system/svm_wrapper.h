@@ -15,7 +15,7 @@
 
 #include "svm.h"
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
-#define Realloc(var,type,n) (type *)realloc(var,(n)*sizeof(type))
+//#define Realloc(var,type,n) (type *)realloc(var,(n)*sizeof(type))
 
 static void (*print_func)(const char*);
 
@@ -105,6 +105,7 @@ protected:
     using SVM::max_line_len;
     using SVM::trainingSet_;
     using SVM::prob_;
+    using SVM::scaling_;
 
   void do_cross_validation();
     void scaleFactors(std::vector<svmData> trainingSet, svm_scaling *scaling);
@@ -180,6 +181,7 @@ protected:
     using SVM::max_line_len;
     using SVM::trainingSet_;
     using SVM::prob_;
+    using SVM::scaling_;
     
     std::vector< std::vector<double> > prediction_;
 
