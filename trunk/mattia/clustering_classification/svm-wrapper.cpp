@@ -188,7 +188,7 @@ void pcl::SVM::adaptInputToLibSVM(std::vector<svmData> trainingSet, svm_problem 
         int k=0;
 
         for (int j=0; j < trainingSet[i].SV.size(); j++)
-            if ( std::isfinite( trainingSet[i].SV[j].value ) )
+            if ( trainingSet[i].SV[j].idx != -1 && std::isfinite( trainingSet[i].SV[j].value ) )
             {
                 prob->x[i][k].index = trainingSet[i].SV[j].idx;
 
@@ -470,11 +470,6 @@ void pcl::SvmPredict::prediction_test()
             printf("\nModel supports probability estimates, but disabled in prediction.\n");
     }
 
-    ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////
-    ////////////////////////////////////////////////
-    // controllare che model ha stesso numero di feature di input
-
     int correct = 0;
     int total = 0;
     double error = 0;
@@ -559,11 +554,6 @@ void pcl::SvmPredict::predict()
     
     if (!predict_probability && svm_check_probability_model(model_))
       printf("\nModel supports probability estimates, but disabled in prediction.\n");
-
-    ////////////////////////////////////////////////////
-    ////////////////////////////////////////////////
-    ////////////////////////////////////////////////
-    // controllare che model ha stesso numero di feature di input
 
     int correct = 0;
     int total = 0;
