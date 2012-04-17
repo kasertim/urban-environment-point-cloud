@@ -49,7 +49,7 @@ struct GlobalData
 {
   pcl::IndicesPtr indices;
   float x_min, y_min, z_min, i_min, x_size, y_size, z_size, i_size;
-  float density, scale;
+  float density, scale, cagg;
   int cardinality;
 
   GlobalData () :
@@ -58,7 +58,7 @@ struct GlobalData
     z_min (std::numeric_limits<float>::max ()), i_min (std::numeric_limits<float>::max ()),
     x_size (std::numeric_limits<float>::min ()), y_size (std::numeric_limits<float>::min ()),
     z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
-    density (), scale (), cardinality ()
+    density (), scale (), cagg (), cardinality ()
   {}
 };
 
@@ -90,7 +90,7 @@ struct ClusterData
 #include "src/noise_filtering.cpp"
 
 void
-compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType>::Ptr &cloud_out, float scale, const char *model=NULL)
+compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType>::Ptr &cloud_out, float scale, float cagg, const char *model=NULL)
 {
   pcl::console::TicToc tt;
   pcl::console::print_highlight (stderr, "Computing (1/6): Global information ");
@@ -99,6 +99,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   GlobalData global_data;
   gatherGlobalInformation (cloud_in, global_data);
   global_data.scale = scale;
+  global_data.cagg = cagg;
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
@@ -191,8 +192,9 @@ printHelp (char **argv)
 {
   pcl::console::print_error ("Correct syntax: ");
   pcl::console::print_value ("%s input.pcd output.pcd <options>\n", argv[0]);
-  pcl::console::print_info ("Options:\n -scale x   x = the distance of one meter\n");
-  pcl::console::print_info (" -model filename   filename = the classifier model filename\n");
+  pcl::console::print_info ("Options:\n -scale x\t\tx = the distance of one meter\n");
+  pcl::console::print_info (" -cagg x\t\tx = the aggresiveness of the clustering step (1.0 = prone to over-segment, 0.0 = prone to under-segment)\n");
+  pcl::console::print_info (" -model filename\tfilename = the classifier model filename\n");
 }
 
 int
@@ -210,9 +212,11 @@ main (int argc, char** argv)
 
   // Parse other arguments
   float scale = 1500.0;
+  float cagg = 0.7;
   std::string model = argv[arg_indices[0]];
   model.append(".model");
   pcl::console::parse_argument (argc, argv, "-scale", scale);
+  pcl::console::parse_argument (argc, argv, "-cagg", cagg);
   pcl::console::parse_argument (argc, argv, "-model", model);
 
   // Load input cloud
@@ -222,7 +226,7 @@ main (int argc, char** argv)
 
   // Computation
   pcl::PointCloud<PointType>::Ptr cloud_out (new pcl::PointCloud<PointType>);
-  compute (cloud_in, cloud_out, scale, model.data());
+  compute (cloud_in, cloud_out, scale, cagg, model.data());
 
   // Save output cloud
   saveCloud (argv[arg_indices[1]], cloud_out);
