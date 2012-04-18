@@ -39,8 +39,8 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/features/normal_3d.h>
 
-// TODO: Make the cluster_size parameters adaptive
-// TODO: Apply the sub-segmentation in order to separate trunks from leaves for instance or separate adjacent objects
+// TODO: Make the min_cluster_size parameter adaptive
+// TODO: Possibly implement a max cluster size check
 
 /** \brief Divides the remaining points into several clusters, each cluster likely to contain exactly one object.
  * \param[in] cloud_in A pointer to the input point cloud.
@@ -73,9 +73,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
   float far_curvature_threshold = 0.006 / pow (0.5 + global_data.cagg, 4);
   float far_intensity_threshold = 0.005 * global_data.i_size / pow (0.5 + global_data.cagg, 4);
   // Below this size (octree representation) are classified as isolated points
-  int min_cluster_size = 4;
-
-  // ---- PHASE ONE : UNDER SEGMENTATION AND SIZE PASSTHROUGH ----
+  int min_cluster_size = 8;
 
   // An octree representation class for temporary downsampling and density normalization
   pcl::octree::OctreePointCloudSearch<PointType> octree (resolution);
@@ -109,23 +107,31 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
     intensity[p_it] /= voxel_indices.size ();
   }
 
-  // Whether points have been assigned a cluster yet
-  std::vector<bool> processed (cloud_octree->width, false);
+  // ---- CONDITIONAL REGION GROWING WITH BASIC OVER-SEGMENTATION PREVENTION ----
+  // Three region growing passes are performed:
+  // 1) Tags all the isolated clusters: clusters smaller than min_cluster_size
+  // 2) The isolated points possibly generated due to over-segmentation are now added to a nearby big cluster
+  // 3) The remaining isolated points need to get mapped into clusters for output as well
 
-  // Iterate through all points
+  // Region growing tags
+  std::vector<bool> processed (cloud_octree->width, false);
+  std::vector<bool> isolated (cloud_octree->width, false);
+
+  // First region growing pass: Tag isolated points
   for (size_t p_it = 0; p_it < cloud_octree->width; ++p_it)
   {
+    // Only iterate through potential seed points
     if (processed[p_it])
       continue;
     processed[p_it] = true;
 
-    // Region growing from seed point
+    // Set up the seed queue
+    size_t sq_it = 0;
     std::vector<int> seed_queue;
     seed_queue.push_back (p_it);
-    size_t sq_it = 0;
     while (sq_it < seed_queue.size ())
     {
-      // Search for sq_it
+      // Candidates in vicinity are stored in nn_indices
       std::vector<int> nn_indices;
       std::vector<float> nn_distances;
       if (searcher->radiusSearch (seed_queue[sq_it], far_distance_threshold, nn_indices, nn_distances) < 1)
@@ -135,9 +141,12 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
       }
       for (size_t nn_it = 1; nn_it < nn_indices.size (); ++nn_it) // nn_indices[0] should be sq_it
       {
-        if (processed[nn_indices[nn_it]]) // Has this point been processed before ?
+        // This candidate is already part of a cluster
+        if (processed[nn_indices[nn_it]])
           continue;
-        // Does it satisfy all the feature conditions?
+        // Does this candidate satisfy the conditions to make it part of this cluster?
+        // Either it is very close AND satisfies close_curvature_threshold OR close_intensity_threshold
+        // Either it is not very close AND satisfies far_curvature_threshold AND far_intensity_threshold
         if ((nn_distances[nn_it] < pow (close_distance_threshold, 2)
             && (fabs (cloud_normals.points[nn_indices[0]].curvature - cloud_normals.points[nn_indices[nn_it]].curvature) < close_curvature_threshold
                 || fabs (intensity[nn_indices[0]] - intensity[nn_indices[nn_it]]) < close_intensity_threshold))
@@ -146,6 +155,57 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
         {
           seed_queue.push_back (nn_indices[nn_it]);
           processed[nn_indices[nn_it]] = true;
+        }
+      }
+      sq_it++;
+    }
+
+    // If the found cluster is very small, tag the points as isolated
+    if (seed_queue.size () < min_cluster_size)
+      for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
+        isolated[seed_queue[sq_it]] = true;
+  }
+
+  // Second region growing pass: The isolated points possibly isolated due to over-segmentation are now added to a nearby big cluster
+  for (size_t p_it = 0; p_it < cloud_octree->width; ++p_it)
+  {
+    // Only iterate through potential seed points, isolated points are not allowed to be a seed
+    if (!processed[p_it] || isolated[p_it])
+      continue;
+    processed[p_it] = false;
+
+    // Set up the seed queue
+    size_t sq_it = 0;
+    std::vector<int> seed_queue;
+    seed_queue.push_back (p_it);
+    while (sq_it < seed_queue.size ())
+    {
+      // Candidates in vicinity are stored in nn_indices
+      std::vector<int> nn_indices;
+      std::vector<float> nn_distances;
+      if (searcher->radiusSearch (seed_queue[sq_it], far_distance_threshold, nn_indices, nn_distances) < 1)
+      {
+        sq_it++;
+        continue;
+      }
+      for (size_t nn_it = 1; nn_it < nn_indices.size (); ++nn_it) // nn_indices[0] should be sq_it
+      {
+        // This candidate is already part of a cluster
+        if (!processed[nn_indices[nn_it]])
+          continue;
+        // Does this candidate satisfy the conditions to make it part of this cluster?
+        // Either it is isolated
+        // Either it is very close AND satisfies close_curvature_threshold OR close_intensity_threshold
+        // Either it is not very close AND satisfies far_curvature_threshold AND far_intensity_threshold
+        if (isolated[nn_indices[nn_it]]
+            || (nn_distances[nn_it] < pow (close_distance_threshold, 2)
+                && (fabs (cloud_normals.points[nn_indices[0]].curvature - cloud_normals.points[nn_indices[nn_it]].curvature)
+                    < close_curvature_threshold || fabs (intensity[nn_indices[0]] - intensity[nn_indices[nn_it]]) < close_intensity_threshold))
+            || (fabs (cloud_normals.points[nn_indices[0]].curvature - cloud_normals.points[nn_indices[nn_it]].curvature) < far_curvature_threshold
+                && fabs (intensity[nn_indices[0]] - intensity[nn_indices[nn_it]]) < far_intensity_threshold))
+        {
+          seed_queue.push_back (nn_indices[nn_it]);
+          processed[nn_indices[nn_it]] = false;
         }
       }
       sq_it++;
@@ -161,51 +221,63 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
       octree.voxelSearch (cloud_octree->points[seed_queue[sq_it]], voxel_indices);
       cluster.indices->insert (cluster.indices->end (), voxel_indices.begin (), voxel_indices.end ());
     }
-    if (seed_queue.size () < min_cluster_size)
-      cluster.is_isolated = true;
     clusters_data->push_back (cluster);
   }
 
-//  // Upsample back from octree representation and store in output
-//  clusters_data->resize (clustering.size ());
-//  for (size_t c_it = 0; c_it < clustering.size (); ++c_it)
-//  {
-//    (*clusters_data)[c_it].indices = boost::make_shared<std::vector<int> > ();
-//    for (size_t ci_it = 0; ci_it < clustering[c_it].indices.size (); ++ci_it)
-//    {
-//      std::vector<int> voxel_indices;
-//      octree.voxelSearch (cloud_octree->points[clustering[c_it].indices[ci_it]], voxel_indices);
-//      (*clusters_data)[c_it].indices->insert ((*clusters_data)[c_it].indices->end (), voxel_indices.begin (), voxel_indices.end ());
-//    }
-//    if (clustering[c_it].indices.size () < min_cluster_size)
-//      (*clusters_data)[c_it].is_isolated = true;
-//  }
+  // Third region growing pass: The remaining isolated points need to get mapped into clusters as well
+  for (size_t p_it = 0; p_it < cloud_octree->width; ++p_it)
+  {
+    // Only iterate through the remaining unprocessed points, which are all truly isolated ones
+    if (!processed[p_it])
+      continue;
+    processed[p_it] = false;
 
-  // ---- PHASE TWO : ZOOMED SEGMENTATION ----
+    // Set up the seed queue
+    size_t sq_it = 0;
+    std::vector<int> seed_queue;
+    seed_queue.push_back (p_it);
+    while (sq_it < seed_queue.size ())
+    {
+      // Candidates in vicinity are stored in nn_indices
+      std::vector<int> nn_indices;
+      std::vector<float> nn_distances;
+      if (searcher->radiusSearch (seed_queue[sq_it], far_distance_threshold, nn_indices, nn_distances) < 1)
+      {
+        sq_it++;
+        continue;
+      }
+      for (size_t nn_it = 1; nn_it < nn_indices.size (); ++nn_it) // nn_indices[0] should be sq_it
+      {
+        // This candidate is already part of a cluster
+        if (!processed[nn_indices[nn_it]])
+          continue;
+        // Does this candidate satisfy the conditions to make it part of this cluster?
+        // Either it is very close AND satisfies close_curvature_threshold OR close_intensity_threshold
+        // Either it is not very close AND satisfies far_curvature_threshold AND far_intensity_threshold
+        if ((nn_distances[nn_it] < pow (close_distance_threshold, 2)
+            && (fabs (cloud_normals.points[nn_indices[0]].curvature - cloud_normals.points[nn_indices[nn_it]].curvature) < close_curvature_threshold
+                || fabs (intensity[nn_indices[0]] - intensity[nn_indices[nn_it]]) < close_intensity_threshold))
+            || (fabs (cloud_normals.points[nn_indices[0]].curvature - cloud_normals.points[nn_indices[nn_it]].curvature) < far_curvature_threshold
+                && fabs (intensity[nn_indices[0]] - intensity[nn_indices[nn_it]]) < far_intensity_threshold))
+        {
+          seed_queue.push_back (nn_indices[nn_it]);
+          processed[nn_indices[nn_it]] = false;
+        }
+      }
+      sq_it++;
+    }
+
+    // Upsample back from octree representation and store in output
+    ClusterData cluster;
+    for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
+    {
+      std::vector<int> voxel_indices;
+      octree.voxelSearch (cloud_octree->points[seed_queue[sq_it]], voxel_indices);
+      cluster.indices->insert (cluster.indices->end (), voxel_indices.begin (), voxel_indices.end ());
+    }
+    cluster.is_isolated = true;
+    clusters_data->push_back (cluster);
+  }
 
   pcl::io::savePCDFileBinary ("temp_oc.pcd", *cloud_octree);
-
-  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-    if (!(*clusters_data)[c_it].is_isolated)
-    {
-      float color = 512.0 + 2550.0 * rand () / (RAND_MAX + 1.0f);
-      for (size_t ci_it = 0; ci_it < (*clusters_data)[c_it].indices->size (); ++ci_it)
-        (*cloud_in)[(*(*clusters_data)[c_it].indices)[ci_it]].intensity = color;
-    }
-  pcl::io::savePCDFileBinary ("temp.pcd", *cloud_in);
-//
-//  pcl::PointCloud<PointType>::Ptr temp (new pcl::PointCloud<PointType>);
-//  pcl::IndicesPtr noise_indices (new std::vector<int>);
-//  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-//    if (!(*clusters_data)[c_it].is_isolated)
-//      noise_indices->insert (noise_indices->end (), (*clusters_data)[c_it].indices->begin (), (*clusters_data)[c_it].indices->end ());
-//  pcl::ExtractIndices<PointType> ei;
-//  ei.setInputCloud (cloud_in);
-//  ei.setIndices (noise_indices);
-//  ei.setKeepOrganized (true);
-//  ei.filter (*temp);
-//  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-//    for (size_t ci_it = 0; ci_it < (*clusters_data)[c_it].indices->size (); ++ci_it)
-//      (*temp)[(*(*clusters_data)[c_it].indices)[ci_it]].intensity = c_it;
-//  pcl::io::savePCDFileBinary ("temp.pcd", *temp);
 }
