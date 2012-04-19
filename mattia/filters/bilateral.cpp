@@ -43,6 +43,7 @@ main (int argc, char** argv)
   pass.setFilterLimits (-2000, -200);
  pass.filter (*cloud_out);
  
+
  
  pcl::octree::OctreePointCloudChangeDetector<pcl::PointXYZI> octree (10.0);
  
@@ -142,9 +143,11 @@ main (int argc, char** argv)
 //  std::cout << "Output size: " << cloud_out->width << " by " << cloud_out->height << std::endl;
   CloudPtr cloud_n (new Cloud);
   CloudPtr cloud_buff (new Cloud);
-  pcl::io::loadPCDFile ("../cropped_leaves.pcd", *cloud_n);
+  pcl::io::loadPCDFile ("only_leaves.pcd", *cloud_n);
   
   pcl::copyPointCloud(*cloud_in, newPointIdxVector, *cloud_buff);
+  
+ // pcl::io::savePCDFileBinary<pcl::PointXYZI>("delt.pcd",*cloud_buff);
   
   cloud_buff->operator+=(*cloud_n);
   

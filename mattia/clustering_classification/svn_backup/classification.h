@@ -7,6 +7,9 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/features/principal_curvatures.h>
+#include <pcl/common/pca.h>
+
+#include "svm_wrapper.h"
 
 // I added these
 //#include <pcl/common/common.h>
@@ -16,6 +19,13 @@
 using namespace Eigen;
 
 #define MAX_NORNALIZE 1//50000000.0
+
+inline float module(float a) {
+    if (a>0)
+        return a;
+    else
+        return -a;
+}
 
 template <typename PointT>
 class classification
@@ -67,13 +77,20 @@ public:
     std::vector<VFHCloudType::Ptr> getVFH() {
         return vfh_ptrs_;
     }
+    
+    std::vector<pcl::svmData> features;
 
     std::vector<double> cardinality_;
     std::vector<double> intensity_;
     std::vector<double> norm_std_dev_;
     std::vector<double> curv_std_dev_;
     std::vector<double> eigModule_;
+    std::vector<double> density_;
+    std::vector<double> firstEig_;
+    std::vector<double> secondEig_;
+    
     std::vector<VFHCloudType::Ptr> vfh_ptrs_;
+    
 private:
     /*
      * Extract clusters cardinalities
@@ -186,6 +203,47 @@ private:
         }
     }
 
+    /*
+    * Extract clusters density
+    * */
+    void density() {
+        density_.clear();
+        for (int i=0; i< clusters_.size(); i++)
+        {
+            Eigen::Vector4f minPt, maxPt;
+            pcl::getMinMax3D(*cloud_, clusters_[i].operator*(), minPt, maxPt);
+
+            float volume =0;
+            volume = module( maxPt[0] - minPt[0] ) * module( maxPt[1] - minPt[1] ) * module( maxPt[2] - minPt[2]);
+//             std::cout << maxPt[0] << " " << maxPt[1] << " " << maxPt[2] << " e ";
+//             std::cout << minPt[0] << " " << minPt[1] << " " << minPt[2] << " " << std::endl;
+            density_.push_back( (double)(volume / clusters_[i]->size()) );
+        }
+    }
+    
+    /*
+    * Extract clusters PCA
+    * */
+    void pca() {
+        firstEig_.clear();
+	secondEig_.clear();
+	
+        pcl::PCA<pcl::PointXYZI> pca;
+
+        for (int i=0; i< clusters_.size(); i++)
+        {
+            Eigen::Vector3f eigenVal(0.0, 0.0, 0.0);
+
+            pca.setInputCloud(cloud_);
+            pca.setIndices(clusters_[i]);
+            if (clusters_[i]->size() > 2)
+                eigenVal = pca.getEigenValues();
+
+            firstEig_.push_back(eigenVal[0]/(eigenVal[0]+eigenVal[1]+eigenVal[2]));
+            secondEig_.push_back(eigenVal[1]/(eigenVal[0]+eigenVal[1]+eigenVal[2]));
+
+        }
+    }
     std::vector<pcl::IndicesPtr> clusters_;
     PointCloudPtr cloud_;
     std::vector< pcl::PointCloud<pcl::Normal>::Ptr > cluster_normals_;
@@ -199,34 +257,83 @@ classification<PointT>::classification(PointCloudPtr cloud, std::vector<pcl::Ind
 
     // Normals and curvatures estimation
     pcl::NormalEstimation<PointT, pcl::Normal> ne;
-    typename pcl::search::KdTree<PointT>::Ptr tree (new typename pcl::search::KdTree<PointT> ());
+    typename pcl::search::KdTree<PointT>::Ptr tree (new typename pcl::search::KdTree<PointT> (false));
     ne.setInputCloud (cloud_);
     ne.setSearchMethod (tree);
 
     // Set up the VFHer class
-    pcl::PointCloud<pcl::Normal>::Ptr normals_all (new pcl::PointCloud<pcl::Normal>);
-    ne.setKSearch(50);
-    ne.compute (*normals_all);
-    vfher_.setInputCloud (cloud_);
-    vfher_.setInputNormals (normals_all);
-    vfher_.setSearchMethod (tree);
+     pcl::PointCloud<pcl::Normal>::Ptr normals_all (new pcl::PointCloud<pcl::Normal>);
+     ne.setKSearch(50);
+     ne.compute (*normals_all);
+//     vfher_.setInputCloud (cloud_);
+//     vfher_.setInputNormals (normals_all);
+//     vfher_.setSearchMethod (tree);
 
     for (int i=0; i< clusters_.size(); i++)
     {
         // Normals
         pcl::PointCloud<pcl::Normal>::Ptr buffN (new pcl::PointCloud<pcl::Normal>);
-        ne.setIndices( clusters[i] );
-        ne.setKSearch(50);
-        ne.compute (*buffN);
+	buffN->resize( clusters_[i]->size() );
+	
+	for(int j=0; j<clusters_[i]->size() ;j++){
+	  buffN->points[j].normal_x = normals_all->points[ clusters_[i]->operator[](j) ].normal_x;
+	  buffN->points[j].normal_y = normals_all->points[ clusters_[i]->operator[](j) ].normal_y;
+	  buffN->points[j].normal_z = normals_all->points[ clusters_[i]->operator[](j) ].normal_z;
+	}
+	
         cluster_normals_.push_back(buffN);
+	
+	
+// 	        // Normals
+//         pcl::PointCloud<pcl::Normal>::Ptr buffN (new pcl::PointCloud<pcl::Normal>);
+//         ne.setIndices( clusters[i] );
+//         ne.setKSearch(50);
+//         ne.compute (*buffN);
+//         cluster_normals_.push_back(buffN);
     }
 
+    features.clear();
     cardinality();
     intensity();
     normal_curv();
     EVD();
-    VFH();
+    density();
+    pca();
+    //VFH();
+    
+    //pcl::svmData buff;
+    
+    for (int i=0; i< clusters_.size(); i++) {
+        pcl::svmData buff;
+        buff.SV.resize(6);
 
+       buff.SV[0].idx = 0;
+       buff.SV[0].value = cardinality_[i];
+
+        buff.SV[1].idx = 1;
+        buff.SV[1].value = intensity_[i];
+
+//        buff.SV[6].idx = 6;
+//        buff.SV[6].value = norm_std_dev_[i];
+//
+//       buff.SV[3].idx = 3;
+//       buff.SV[3].value = curv_std_dev_[i];
+
+        buff.SV[2].idx = 2;
+        buff.SV[2].value = eigModule_[i];
+
+        buff.SV[3].idx = 3;
+        buff.SV[3].value = density_[i];
+
+        buff.SV[4].idx = 4;
+        buff.SV[4].value = firstEig_[i];
+
+        buff.SV[5].idx = 5;
+        buff.SV[5].value = secondEig_[i];
+
+        features.push_back(buff);
+    }
+ //std::cout << features.size() << std::endl;
 
 //     std::cout << "\nMaximum cardinality_: " << *(std::max_element(cardinality_.begin(),cardinality_.end()) ) << std::endl;
 //     std::cout << "Maximum intensity_: " << *(std::max_element(intensity_.begin(),intensity_.end()) ) << std::endl;
