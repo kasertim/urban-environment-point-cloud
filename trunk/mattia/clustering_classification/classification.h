@@ -78,7 +78,7 @@ public:
         return vfh_ptrs_;
     }
     
-    std::vector<pcl::svmData> features;
+    std::vector<pcl::SVMData> features;
 
     std::vector<double> cardinality_;
     std::vector<double> intensity_;
@@ -301,10 +301,10 @@ classification<PointT>::classification(PointCloudPtr cloud, std::vector<pcl::Ind
     pca();
     //VFH();
     
-    //pcl::svmData buff;
+    //pcl::SVMData buff;
     
     for (int i=0; i< clusters_.size(); i++) {
-        pcl::svmData buff;
+        pcl::SVMData buff;
         buff.SV.resize(6);
 
        buff.SV[0].idx = 0;

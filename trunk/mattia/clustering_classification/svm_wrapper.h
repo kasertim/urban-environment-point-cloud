@@ -9,242 +9,375 @@
 #include <iostream>
 #include <fstream>
 #include <Eigen/Core>
-
-
 #include <vector>
 
 #include "svm.h"
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
-#define Realloc(var,type,n) (type *)realloc(var,(n)*sizeof(type))
 
-static void (*print_func)(const char*);
+namespace pcl
+{
 
-namespace pcl {
+  /** \brief The structure must be initialized and passed to the training method pcl::SVMTrain.
+   *  \param svm_type {C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR}
+   *  \param kernel_type {LINEAR, POLY, RBF, SIGMOID, PRECOMPUTED}
+   */
 
-class svmDataPoint {
-public:
+  struct SVMParam: svm_parameter
+  {
+    SVMParam ()
+    {
+      svm_type = C_SVC; // C_SVC, NU_SVC, ONE_CLASS, EPSILON_SVR, NU_SVR
+      kernel_type = RBF; // LINEAR, POLY, RBF, SIGMOID, PRECOMPUTED
+      degree = 3; // for poly
+      gamma = 0; // 1/num_features {for poly/rbf/sigmoid}
+      coef0 = 0; //  for poly/sigmoid
+
+      nu = 0.5; // for NU_SVC, ONE_CLASS, and NU_SVR
+      cache_size = 100; // in MB
+      C = 1; // for C_SVC, EPSILON_SVR and NU_SVR
+      eps = 1e-3; // stopping criteria
+      p = 0.1; // for EPSILON_SVR
+      shrinking = 1; // use the shrinking heuristics
+      probability = 0; // do probability estimates
+
+      nr_weight = 0; // for C_SVC
+      weight_label = NULL; // for C_SVC
+      weight = NULL; // for C_SVC
+    }
+  };
+
+  struct SVMModel: svm_model
+  {
+    SVMModel ()
+    {
+      l = 0;
+      probA = NULL;
+      probB = NULL;
+    }
+  };
+
+  struct SVMDataPoint
+  {
     int idx;
     float value;
-};
 
-class svmData {
-public:
-    double *label;
-    std::vector<pcl::svmDataPoint> SV;
-    
-    svmData() : label(NULL) {};
-};
-
-class SVM {
-
-protected:
-    std::vector<svmData> trainingSet_;
-    static void print_null(const char *s) {}
-    svm_problem prob_;
-    svm_model *model_;
-    svm_node *x_space_;
-    svm_scaling scaling_;
-    
-    bool labelledTrainingSet_;
-
-    char model_file_name[1024];
-
-    char *line;
-    int max_line_len;
-
-    char* readline(FILE *input);
-
-    void exit_input_error(int line_num)
+    SVMDataPoint () : idx (-1), value (0)
     {
-        fprintf(stderr,"Wrong input format at line %d\n", line_num);
-        exit(1);
     }
+  };
 
-    void adaptInputToLibSVM(std::vector<svmData> trainingSet, svm_problem *prob);
-    void adaptLibSVMToInput(std::vector<svmData> *trainingSet, svm_problem prob);
+  struct SVMData
+  {
+    double *label;
+    std::vector<pcl::SVMDataPoint> SV;
+
+    SVMData () : label (NULL)
+    {
+    }
+  };
+
+  class SVM
+  {
+
+    protected:
+      std::vector<SVMData> training_set_;
+      static void printNull (const char *s) {}
+
+      svm_problem prob_;
+      SVMModel model_;
+      svm_node *x_space_;
+      svm_scaling scaling_;
+      SVMParam param_;
+      bool labelled_training_set_;
+
+      char *line_;
+      int max_line_len_;
+
+      char* readline (FILE *input);
+
+      void exitInputError (int line_num)
+      {
+        fprintf (stderr, "Wrong input format at line %d\n", line_num);
+        exit (1);
+      }
+
+      void adaptInputToLibSVM (std::vector<SVMData> training_set, svm_problem &prob);
+      void adaptLibSVMToInput (std::vector<SVMData> &training_set, svm_problem prob);
 
 
-    bool loadProblem(const char *filename, svm_problem *prob);
+      bool loadProblem (const char *filename, svm_problem &prob);
 
-    bool saveProblem(const char *filename, svm_problem prob_, bool labelled);
-    bool saveProblemNorm(const char *filename, svm_problem prob_, bool labelled);
+      bool saveProblem (const char *filename, bool labelled);
+      bool saveProblemNorm (const char *filename, svm_problem prob_, bool labelled);
 
-//public:
-    svm_parameter param;
-    
-public:
+    public:
+      void saveModel (const char *filename)
+      {
+        if (model_.l == 0)
+          return;
 
-    void saveModel(const char *filename) {
-        if (model_->l == 0)
-            return;
-	
-        if (svm_save_model(filename,model_))
+        if (svm_save_model (filename, &model_))
         {
-            fprintf(stderr, "can't save model to file %s\n", model_file_name);
-            exit(1);
+          fprintf (stderr, "can't save model to file %s\n", filename);
+          exit (1);
         }
-    };
+      };
 
-};
+      SVM() : line_ (NULL), max_line_len_ (10000), labelled_training_set_ (1)
+      {
+      }
 
-class SvmTrain : public SVM {
+      ~SVM ()
+      {
+        svm_destroy_param (&param_);
 
-protected:
+        if (scaling_.max > 0)
+          free (scaling_.obj);
 
-  void do_cross_validation();
-    void scaleFactors(std::vector<svmData> trainingSet, svm_scaling *scaling);
+        if (prob_.l > 0)
+        {
+          free (prob_.x);
+          free (prob_.y);
+        }
+      }
 
-    int cross_validation;
-    int nr_fold;
+  };
 
-    bool debug_;
+  class SvmTrain : public SVM
+  {
 
-public:
-    SvmTrain();
+    protected:
+      using SVM::labelled_training_set_;
+      using SVM::model_;
+      using SVM::line_;
+      using SVM::max_line_len_;
+      using SVM::training_set_;
+      using SVM::prob_;
+      using SVM::scaling_;
+      using SVM::param_;
 
-    ~SvmTrain() {
-        svm_destroy_param(&param);
-    }
+      void doCrossValidation();
+      void scaleFactors (std::vector<SVMData> training_set, svm_scaling &scaling);
 
-    using SVM::param;
-    
-    svm_model *getOutputModel() {
+      int cross_validation_;
+      int nr_fold_;
+      bool debug_;
+
+    public:
+      SvmTrain() : debug_ (0), cross_validation_ (0), nr_fold_ (0)
+      {
+        svm_set_print_string_function (&printNull);
+      }
+
+      ~SvmTrain ()
+      {
+        if (model_.l > 0)
+          svm_free_model_content (&model_);
+      }
+
+      void
+      setParameters (SVMParam param)
+      {
+        param_ = param;
+      }
+
+      SVMParam
+      getParameters ()
+      {
+        return param_;
+      }
+
+      SVMModel
+      getOutputModel ()
+      {
         return model_;
-    }
+      }
 
-    void setInputTrainingSet(std::vector<svmData> trainingSet) {
-        trainingSet_.insert(trainingSet_.end(), trainingSet.begin(), trainingSet.end());
-    }
+      void
+      setInputTrainingSet (std::vector<SVMData> training_set)
+      {
+        training_set_.insert (training_set_.end(), training_set.begin(), training_set.end());
+      }
 
-    void resetTrainingSet() {
-        trainingSet_.clear();
-    }
+      std::vector<SVMData>
+      getInputTrainingSet ()
+      {
+        return training_set_;
+      }
 
-    // set by parse_command_line
+      void resetTrainingSet ()
+      {
+        training_set_.clear();
+      }
 
-    int train();
+      // set by parse_command_line
 
-    // read in a problem (in svmlight format)
-    bool loadProblem(const char *filename) {
-       return SVM::loadProblem(filename, &prob_);
-    };
+      int trainClassifier ();
 
-    /*
-     * Save problem in specified file
-     */
+      // read in a problem (in svmlight format)
+      bool loadProblem (const char *filename)
+      {
+        return SVM::loadProblem (filename, prob_);
+      };
 
-    void setDebugMode(bool in) {
+      /*
+       * Save problem in specified file
+       */
+
+      void setDebugMode (bool in)
+      {
         debug_ = in;
+
         if (in)
-            print_func =NULL;
+          svm_set_print_string_function (NULL);
         else
-            print_func =&print_null;
+          svm_set_print_string_function (&printNull);
+      };
 
-        svm_set_print_string_function(print_func);
-    };
+      bool saveProblem (const char *filename)
+      {
+        return SVM::saveProblem (filename, 1);
+      };
 
-    bool saveProblem(const char *filename) {
-        return SVM::saveProblem(filename, prob_, 1);
-    };
-
-    bool saveProblemNorm(const char *filename) {
-        return SVM::saveProblemNorm(filename, prob_, 1);
-    };
-};
-
-
-
-class SvmPredict : public SVM {
-
-protected:
-    void scaleProblem(svm_problem *input, svm_scaling scaling);
-    bool predict_probability;
-    using SVM::labelledTrainingSet_;
-    
-    std::vector< std::vector<double> > prediction_;
+      bool saveProblemNorm (const char *filename)
+      {
+        return SVM::saveProblemNorm (filename, prob_, 1);
+      };
+  };
 
 
-public:
 
-    void setInputTrainingSet(std::vector<svmData> trainingSet) {
-        trainingSet_.insert(trainingSet_.end(), trainingSet.begin(), trainingSet.end());
-        SVM::adaptInputToLibSVM(trainingSet_, &prob_);
-    }
+  class SvmClassify : public SVM
+  {
 
-    void resetTrainingSet() {
-        trainingSet_.clear();
-    }
+    protected:
+      void scaleProblem (svm_problem &input, svm_scaling scaling);
+      bool predict_probability_, model_extern_copied_;
 
-    SvmPredict () {
-        line = NULL;
-        max_line_len = 10000;
-        predict_probability=0;
-        model_ = new svm_model;
-        model_->l = 0;
-	labelledTrainingSet_=1;
-	prediction_.clear();
-    }
+      using SVM::labelled_training_set_;
+      using SVM::model_;
+      using SVM::line_;
+      using SVM::max_line_len_;
+      using SVM::training_set_;
+      using SVM::prob_;
+      using SVM::scaling_;
+      using SVM::param_;
 
-    bool loadModel(const char *filename);
-    
-    std::vector< std::vector<double> > getPrediction(){
-      return prediction_;
-    }
-    
-    void savePrediction(const char *filename);
+      std::vector< std::vector<double> > prediction_;
 
-    void setInputModel(svm_model* model) {
+    public:
+      void setInputTrainingSet (std::vector<SVMData> training_set)
+      {
+        training_set_.insert (training_set_.end(), training_set.begin(), training_set.end());
+        SVM::adaptInputToLibSVM (training_set_, prob_);
+      }
+
+      void resetTrainingSet()
+      {
+        training_set_.clear();
+      }
+
+      SvmClassify () : model_extern_copied_ (0), predict_probability_ (0)
+      {
+      }
+
+      ~SvmClassify ()
+      {
+        if (!model_extern_copied_ && model_.l > 0)
+          svm_free_model_content (&model_);
+      }
+
+      bool loadModel (const char *filename);
+
+      void getPrediction (std::vector< std::vector<double> > &out)
+      {
+        out.clear ();
+        out.insert (out.begin(), prediction_.begin(), prediction_.end());
+      }
+
+      void savePrediction (const char *filename);
+
+      void setInputModel (SVMModel model)
+      {
+        // model (inner pointers are references)
         model_ = model;
-	
-	int i=0;
-	while(model_->scaling[i].index != -1)
-	  i++;
-	
-	scaling_.max = i;
-	scaling_.obj = model_->scaling;
-    };
 
-    bool loadProblem(const char *filename) {
-        assert (model_->l != 0);
+        int i = 0;
 
-        bool out = SVM::loadProblem(filename, &prob_);
-        SVM::adaptLibSVMToInput(&trainingSet_, prob_);
-        scaleProblem(&prob_, scaling_);
-	return out;
-    };
+        while (model_.scaling[i].index != -1)
+          i++;
 
-    bool loadProblemNorm(const char *filename) {
-        bool out = SVM::loadProblem(filename, &prob_);
-        SVM::adaptLibSVMToInput(&trainingSet_, prob_);
-	return out;
-    };
+        scaling_.max = i;
 
-    /*
-     * Predicts using the SVM machine on labelled input set.
-     * It outputs the prediciton accuracy
-     * */
+        scaling_.obj = Malloc (struct svm_node, i + 1);
 
-    void setProbabilityEstimates(bool set) {
-        predict_probability = set;
-    };
-    
-    void prediction_test();
+        scaling_.obj[i].index = -1;
 
-    void predict();
-    
-    std::vector<double> predict(svmData in);
+        // Performing full scaling copy
+        for (int j = 0; j < i; j++)
+        {
+          scaling_.obj[j] = model_.scaling[j];
+        }
 
-    /*
-     * Save problem in specified file
-     */
-    bool saveProblem(const char *filename) {
-       return SVM::saveProblem(filename, prob_, 0);
-    };
+        model_extern_copied_ = 1;
+      };
 
-    bool saveProblemNorm(const char *filename) {
-       return SVM::saveProblemNorm(filename, prob_, 0);
-    };
-};
+      bool loadProblem (const char *filename)
+      {
+        assert (model_.l != 0);
+
+        bool out = SVM::loadProblem (filename, prob_);
+        SVM::adaptLibSVMToInput (training_set_, prob_);
+        scaleProblem (prob_, scaling_);
+        return out;
+      };
+
+      bool loadProblemNorm (const char *filename)
+      {
+        bool out = SVM::loadProblem (filename, prob_);
+        SVM::adaptLibSVMToInput (training_set_, prob_);
+        return out;
+      };
+
+      /*
+       * Predicts using the SVM machine on labelled input set.
+       * It outputs the prediciton accuracy
+       * */
+
+      void setProbabilityEstimates (bool set)
+      {
+        predict_probability_ = set;
+      };
+
+      void predictionTest ();
+
+      void predict ();
+
+      void getLabel (std::vector<int> &labels)
+      {
+        int nr_class = svm_get_nr_class (&model_);
+        int *labels_ = (int *) malloc (nr_class * sizeof (int));
+        svm_get_labels (&model_, labels_);
+
+        for (int j = 0 ; j < nr_class; j++)
+          labels.push_back (labels_[j]);
+      };
+
+      std::vector<double> predict (SVMData in);
+
+      /*
+       * Save problem in specified file
+       */
+      bool saveProblem (const char *filename)
+      {
+        return SVM::saveProblem (filename, 0);
+      };
+
+      bool saveProblemNorm (const char *filename)
+      {
+        return SVM::saveProblemNorm (filename, prob_, 0);
+      };
+  };
 }
 
 #endif
