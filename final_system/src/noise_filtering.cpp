@@ -39,14 +39,11 @@
 
 /** \brief This will be a simple ExtractIndices application for now, but for more elaborate noise it could mean smoothing or stuff like that.
   * \param[in] cloud_in A pointer to the input point cloud.
-  * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
   * \param[in] clusters_data An array of information holders for each cluster
   * \param[out] cloud_out The output point cloud, with the noise filtered.
   */
 void
-applyNoiseFiltering (const pcl::PointCloud<PointType>::Ptr cloud_in,
-                     GlobalData global_data,
-                     boost::shared_ptr<std::vector<ClusterData> > clusters_data,
+applyNoiseFiltering (const pcl::PointCloud<PointType>::Ptr cloud_in, boost::shared_ptr<std::vector<ClusterData> > clusters_data,
                      pcl::PointCloud<PointType>::Ptr &cloud_out)
 {
   // Set up the noise index array

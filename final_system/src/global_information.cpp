@@ -37,36 +37,35 @@
 
 #include <pcl/filters/filter_indices.h>
 
-/** \brief Gathers information about the entire input cloud, useful for the other pipeline stages: automation/normalization of input parameters.
+/** \brief NaN removal and gathers information about the entire input cloud, useful for the other pipeline stages: automation/normalization of input parameters.
   * \param[in] cloud_in A pointer to the input point cloud.
-  * \param[out] global_data A struct holding information on the full point cloud and global input parameters.
+  * \param[out] indices A pointer to the remaining indices.
   */
 void
-gatherGlobalInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
-                         GlobalData &global_data)
+gatherGlobalInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::IndicesPtr &indices)
 {
   // Index only the finite values
-  pcl::removeNaNFromPointCloud (*cloud_in, *global_data.indices);
+  pcl::removeNaNFromPointCloud (*cloud_in, *indices);
 
   // Calculate the minimum and maximum values of all fields
-  for (size_t i_it = 0; i_it < global_data.indices->size (); ++i_it)
+  for (size_t i_it = 0; i_it < indices->size (); ++i_it)
   {
-    if (cloud_in->points[(*global_data.indices)[i_it]].x < global_data.x_min)
-      global_data.x_min = cloud_in->points[(*global_data.indices)[i_it]].x;
-    if (cloud_in->points[(*global_data.indices)[i_it]].x > global_data.x_size)
-      global_data.x_size = cloud_in->points[(*global_data.indices)[i_it]].x;
-    if (cloud_in->points[(*global_data.indices)[i_it]].y < global_data.y_min)
-      global_data.y_min = cloud_in->points[(*global_data.indices)[i_it]].y;
-    if (cloud_in->points[(*global_data.indices)[i_it]].y > global_data.y_size)
-      global_data.y_size = cloud_in->points[(*global_data.indices)[i_it]].y;
-    if (cloud_in->points[(*global_data.indices)[i_it]].z < global_data.z_min)
-      global_data.z_min = cloud_in->points[(*global_data.indices)[i_it]].z;
-    if (cloud_in->points[(*global_data.indices)[i_it]].z > global_data.z_size)
-      global_data.z_size = cloud_in->points[(*global_data.indices)[i_it]].z;
-    if (cloud_in->points[(*global_data.indices)[i_it]].intensity < global_data.i_min)
-      global_data.i_min = cloud_in->points[(*global_data.indices)[i_it]].intensity;
-    if (cloud_in->points[(*global_data.indices)[i_it]].intensity > global_data.i_size)
-      global_data.i_size = cloud_in->points[(*global_data.indices)[i_it]].intensity;
+    if (cloud_in->points[(*indices)[i_it]].x < global_data.x_min)
+      global_data.x_min = cloud_in->points[(*indices)[i_it]].x;
+    if (cloud_in->points[(*indices)[i_it]].x > global_data.x_size)
+      global_data.x_size = cloud_in->points[(*indices)[i_it]].x;
+    if (cloud_in->points[(*indices)[i_it]].y < global_data.y_min)
+      global_data.y_min = cloud_in->points[(*indices)[i_it]].y;
+    if (cloud_in->points[(*indices)[i_it]].y > global_data.y_size)
+      global_data.y_size = cloud_in->points[(*indices)[i_it]].y;
+    if (cloud_in->points[(*indices)[i_it]].z < global_data.z_min)
+      global_data.z_min = cloud_in->points[(*indices)[i_it]].z;
+    if (cloud_in->points[(*indices)[i_it]].z > global_data.z_size)
+      global_data.z_size = cloud_in->points[(*indices)[i_it]].z;
+    if (cloud_in->points[(*indices)[i_it]].intensity < global_data.i_min)
+      global_data.i_min = cloud_in->points[(*indices)[i_it]].intensity;
+    if (cloud_in->points[(*indices)[i_it]].intensity > global_data.i_size)
+      global_data.i_size = cloud_in->points[(*indices)[i_it]].intensity;
   }
 
   // Convert max to size
@@ -75,7 +74,7 @@ gatherGlobalInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
   global_data.z_size = global_data.z_size - global_data.z_min;
   global_data.i_size = global_data.i_size - global_data.i_min;
 
-  // Cardinality and density
-  global_data.cardinality = global_data.indices->size ();
-  global_data.density = global_data.cardinality / (global_data.x_size * global_data.y_size * global_data.z_size);
+//  // Cardinality and density
+//  global_data.cardinality = indices->size ();
+//  global_data.density = global_data.cardinality / (global_data.x_size * global_data.y_size * global_data.z_size);
 }

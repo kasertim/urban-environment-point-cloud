@@ -44,21 +44,21 @@
 // The point type used
 typedef pcl::PointXYZI PointType;
 
-// Information holder for the full point cloud
+// Information holder for globals and some point cloud characteristics
 struct GlobalData
 {
-  pcl::IndicesPtr indices;
   float x_min, y_min, z_min, i_min, x_size, y_size, z_size, i_size;
-  float density, scale, cagg;
-  int cardinality;
+  float scale, cagg, pground, plarge, psmall;
+  std::string model; // I'd rather see the I/O in anf.cpp and that the contents is passed to SVM
+  bool train, octrees;
 
   GlobalData () :
-    indices (new std::vector<int>),
     x_min (std::numeric_limits<float>::max ()), y_min (std::numeric_limits<float>::max ()),
     z_min (std::numeric_limits<float>::max ()), i_min (std::numeric_limits<float>::max ()),
     x_size (std::numeric_limits<float>::min ()), y_size (std::numeric_limits<float>::min ()),
     z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
-    density (), scale (), cagg (), cardinality ()
+    scale (1500.0), cagg (0.5), pground (0.05), plarge (0.1), psmall (0.001),
+    model ("svm_model.model"), train (false), octrees (false)
   {}
 };
 
@@ -76,10 +76,13 @@ struct ClusterData
   ClusterData () :
     indices (new std::vector<int>),
     features (),
-    is_isolated(false), is_good (false), is_tree (false), is_ghost (false),
-    is_good_prob(0.0), is_tree_prob(0.0), is_ghost_prob(0.0)
+    is_isolated (false), is_good (false), is_tree (false), is_ghost (false),
+    is_good_prob (0.0), is_tree_prob (0.0), is_ghost_prob (0.0)
   {}
 };
+
+// A GlobalData instance
+GlobalData global_data;
 
 // The computation pipeline stages
 #include "src/global_information.cpp"
@@ -90,37 +93,35 @@ struct ClusterData
 #include "src/noise_filtering.cpp"
 
 void
-compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType>::Ptr &cloud_out, float scale, float cagg, const char *model=NULL)
+compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointType>::Ptr &cloud_out)
 {
   pcl::console::TicToc tt;
   pcl::console::print_highlight (stderr, "Computing (1/6): Global information ");
   tt.tic ();
 
-  GlobalData global_data;
-  gatherGlobalInformation (cloud_in, global_data);
-  global_data.scale = scale;
-  global_data.cagg = cagg;
+  pcl::IndicesPtr indices (new std::vector<int>);
+  gatherGlobalInformation (cloud_in, indices);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
   pcl::console::print_info (stderr, "Finite points in cloud: ");
-  pcl::console::print_value (stderr, "%d\n", global_data.indices->size ());
+  pcl::console::print_value (stderr, "%d\n", indices->size ());
   pcl::console::print_highlight (stderr, "Computing (2/6): Plane segmentation ");
   tt.tic ();
 
-  applyPlaneSegmentation (cloud_in, global_data);
+  applyPlaneSegmentation (cloud_in, indices);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
   pcl::console::print_info (" ms]\n");
   pcl::console::print_info (stderr, "Remaining points to work on: ");
-  pcl::console::print_value (stderr, "%d\n", global_data.indices->size ());
+  pcl::console::print_value (stderr, "%d\n", indices->size ());
   pcl::console::print_highlight (stderr, "Computing (3/6): Object clustering ");
   tt.tic ();
 
   boost::shared_ptr<std::vector<ClusterData> > clusters_data (new std::vector<ClusterData>);
-  applyObjectClustering (cloud_in, global_data, clusters_data);
+  applyObjectClustering (cloud_in, indices, clusters_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
@@ -130,7 +131,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_highlight (stderr, "Computing (4/6): Cluster information ");
   tt.tic ();
 
-  gatherClusterInformation (cloud_in, global_data, clusters_data);
+  gatherClusterInformation (cloud_in, clusters_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
@@ -138,7 +139,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_highlight (stderr, "Computing (5/6): Object classification ");
   tt.tic ();
 
-  applyObjectClassification (cloud_in, global_data, clusters_data, model);
+  applyObjectClassification (cloud_in, clusters_data);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
@@ -146,7 +147,7 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_highlight (stderr, "Computing (6/6): Noise filtering ");
   tt.tic ();
 
-  applyNoiseFiltering (cloud_in, global_data, clusters_data, cloud_out);
+  applyNoiseFiltering (cloud_in, clusters_data, cloud_out);
 
   pcl::console::print_info ("[done, ");
   pcl::console::print_value ("%g", tt.toc ());
@@ -191,10 +192,15 @@ void
 printHelp (char **argv)
 {
   pcl::console::print_error ("Correct syntax: ");
-  pcl::console::print_value ("%s input.pcd output.pcd <options>\n", argv[0]);
-  pcl::console::print_info ("Options:\n -scale x\t\tx = the distance of one meter\n");
-  pcl::console::print_info (" -cagg x\t\tx = the aggresiveness of the clustering step (1.0 = prone to over-segment, 0.0 = prone to under-segment)\n");
-  pcl::console::print_info (" -model filename\tfilename = the classifier model filename\n");
+  pcl::console::print_value ("%s input.pcd output.pcd svm_model.model <options>\n", argv[0]);
+  pcl::console::print_info ("Options:\n");
+  pcl::console::print_info (" -train     if present, use the input data to train the SVM and append to the model\n");
+  pcl::console::print_info (" -scale x   x = distance of one meter\n");
+  pcl::console::print_info (" -cagg x    x = aggressiveness of the clustering step (1.0 = prone to over-segment, 0.0 = prone to under-segment, default = 0.5)\n");
+  pcl::console::print_info (" -pground x x = the percentage of ground planes\n");
+  pcl::console::print_info (" -plarge x  x = the percentage limit for large clusters\n");
+  pcl::console::print_info (" -psmall x  x = the percentage limit for isolated clusters\n");
+  pcl::console::print_info (" -octrees   if present, output the intermediate octree representations of the segmentation steps, useful for parameter tweaking\n");
 }
 
 int
@@ -203,32 +209,37 @@ main (int argc, char** argv)
   pcl::console::print_highlight ("Automated Noise Filtering by Mattia Di Gaetano and Frits Florentinus\n");
 
   // Parse pcd arguments
-  std::vector<int> arg_indices = pcl::console::parse_file_extension_argument (argc, argv, ".pcd");
-  if (arg_indices.size () != 2)
+  std::vector<int> pcd_indices = pcl::console::parse_file_extension_argument (argc, argv, ".pcd");
+  if (pcd_indices.size () != 2)
   {
     printHelp (argv);
     return (-1);
   }
 
+  // Parse model arguments
+  std::vector<int> model_indices = pcl::console::parse_file_extension_argument (argc, argv, ".model");
+  if (model_indices.size () > 0)
+    global_data.model = argv[model_indices[0]];
+
   // Parse other arguments
-  float scale = 1500.0;
-  float cagg = 0.7;
-  std::string model = argv[arg_indices[0]];
-  model.append(".model");
-  pcl::console::parse_argument (argc, argv, "-scale", scale);
-  pcl::console::parse_argument (argc, argv, "-cagg", cagg);
-  pcl::console::parse_argument (argc, argv, "-model", model);
+  pcl::console::parse_argument (argc, argv, "-scale", global_data.scale);
+  pcl::console::parse_argument (argc, argv, "-cagg", global_data.cagg);
+  pcl::console::parse_argument (argc, argv, "-pground", global_data.pground);
+  pcl::console::parse_argument (argc, argv, "-plarge", global_data.plarge);
+  pcl::console::parse_argument (argc, argv, "-psmall", global_data.psmall);
+  global_data.train = pcl::console::find_switch (argc, argv, "-train");
+  global_data.octrees = pcl::console::find_switch (argc, argv, "-octrees");
 
   // Load input cloud
   pcl::PointCloud<PointType>::Ptr cloud_in (new pcl::PointCloud<PointType>);
-  if (!loadCloud (argv[arg_indices[0]], cloud_in))
+  if (!loadCloud (argv[pcd_indices[0]], cloud_in))
     return (-1);
 
   // Computation
   pcl::PointCloud<PointType>::Ptr cloud_out (new pcl::PointCloud<PointType>);
-  compute (cloud_in, cloud_out, scale, cagg, model.data());
+  compute (cloud_in, cloud_out);
 
   // Save output cloud
-  saveCloud (argv[arg_indices[1]], cloud_out);
+  saveCloud (argv[pcd_indices[1]], cloud_out);
   return (0);
 }

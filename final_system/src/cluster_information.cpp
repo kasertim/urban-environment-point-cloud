@@ -39,153 +39,165 @@
 #include <pcl/common/pca.h>
 
 // Number module
-inline float module(float a);
+inline float
+module (float a);
 
 // Extract the cardinality of cluster
-inline int cardinality(pcl::IndicesPtr indices_);
+inline int
+cardinality (pcl::IndicesPtr indices_);
 
 // Extract the mean intensity value of a cluster
-inline double mean_intensity(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPtr indices_);
+inline double
+mean_intensity (const pcl::PointCloud<PointType>::Ptr cloud_, pcl::IndicesPtr indices_);
 
 // Extract clusters the EigenValue decomposition module
-double EVD(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPtr indices_);
+double
+EVD (const pcl::PointCloud<PointType>::Ptr cloud_, pcl::IndicesPtr indices_);
 
 // Determines the point density whitin a bounding box
-double density(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPtr indices_);
-
+double
+density (const pcl::PointCloud<PointType>::Ptr cloud_, pcl::IndicesPtr indices_);
 
 // Extract clusters Principal component analisys
-Eigen::Vector3f pca(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPtr indices_);
+Eigen::Vector3f
+pca (const pcl::PointCloud<PointType>::Ptr cloud_, pcl::IndicesPtr indices_);
 
 /** \brief Estimates features for each cluster, required for classifying each cluster.
   * \param[in] cloud_in A pointer to the input point cloud.
-  * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
-  * \param[out] clusters_data An array of information holders for each cluster
-  * 
+  * \param[in/out] clusters_data An array of information holders for each cluster
   */
 void
-gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in,
-                          GlobalData global_data,
-                          boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
+gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
 {
-    //For each cluster, point data features are calculates
-    for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-    {
-        pcl::svmDataPoint data; // Temp object
-        (*clusters_data)[c_it].features.SV.clear(); // Reset the current features
-	
-	// Save carcinality
-	data.idx = 0;
-	data.value = cardinality((*clusters_data)[c_it].indices);
-	(*clusters_data)[c_it].features.SV.push_back(data);
-	
-	// Save mean intensity
-	data.idx = 1;
-	data.value = mean_intensity(cloud_in, (*clusters_data)[c_it].indices);
-	(*clusters_data)[c_it].features.SV.push_back(data);
-	
-	// Eigen Value Decomposition module
-	data.idx = 2;
-	data.value = EVD(cloud_in, (*clusters_data)[c_it].indices);
-	if(data.value != 0.0 && std::isfinite(data.value) ) 
-	  (*clusters_data)[c_it].features.SV.push_back(data);
-	
-	// Save point density inside a bounding box
-	data.idx = 3;
-	data.value = density(cloud_in, (*clusters_data)[c_it].indices);
-	if(data.value != 0.0 && std::isfinite(data.value) ) 
-	  (*clusters_data)[c_it].features.SV.push_back(data);
-	
-	// Extract Principal Component analisys and save the first two normalized eigenvalues
-	Eigen::Vector3f eig;
-	eig = pca(cloud_in, (*clusters_data)[c_it].indices);
-	
-	data.idx = 4;
-	data.value = eig[0];
-	if(data.value != 0.0 && std::isfinite(data.value) ) 
-	  (*clusters_data)[c_it].features.SV.push_back(data);
-	
-	data.idx = 5;
-	data.value = eig[1];
-	if(data.value != 0.0 && std::isfinite(data.value) ) 
-	  (*clusters_data)[c_it].features.SV.push_back(data);
+  //For each cluster, point data features are calculates
+  for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
+  {
+    pcl::svmDataPoint data; // Temp object
+    (*clusters_data)[c_it].features.SV.clear (); // Reset the current features
 
-    }
+    // Save carcinality
+    data.idx = 0;
+    data.value = cardinality ((*clusters_data)[c_it].indices);
+    (*clusters_data)[c_it].features.SV.push_back (data);
+
+    // Save mean intensity
+    data.idx = 1;
+    data.value = mean_intensity (cloud_in, (*clusters_data)[c_it].indices);
+    (*clusters_data)[c_it].features.SV.push_back (data);
+
+    // Eigen Value Decomposition module
+    data.idx = 2;
+    data.value = EVD (cloud_in, (*clusters_data)[c_it].indices);
+    if (data.value != 0.0 && std::isfinite (data.value))
+      (*clusters_data)[c_it].features.SV.push_back (data);
+
+    // Save point density inside a bounding box
+    data.idx = 3;
+    data.value = density (cloud_in, (*clusters_data)[c_it].indices);
+    if (data.value != 0.0 && std::isfinite (data.value))
+      (*clusters_data)[c_it].features.SV.push_back (data);
+
+    // Extract Principal Component analisys and save the first two normalized eigenvalues
+    Eigen::Vector3f eig;
+    eig = pca (cloud_in, (*clusters_data)[c_it].indices);
+
+    data.idx = 4;
+    data.value = eig[0];
+    if (data.value != 0.0 && std::isfinite (data.value))
+      (*clusters_data)[c_it].features.SV.push_back (data);
+
+    data.idx = 5;
+    data.value = eig[1];
+    if (data.value != 0.0 && std::isfinite (data.value))
+      (*clusters_data)[c_it].features.SV.push_back (data);
+
+  }
 }
 
-inline float module(float a) {
-    if (a>0)
-        return a;
-    else
-        return -a;
+inline float
+module (float a)
+{
+  if (a > 0)
+    return a;
+  else
+    return -a;
 }
 
-inline int cardinality(pcl::IndicesPtr indices_) {
-    return indices_->size();
+inline int
+cardinality (pcl::IndicesPtr indices_)
+{
+  return indices_->size ();
 }
 
-inline double mean_intensity(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPtr indices_) {
-    int buff=0;
-    for (int j=0; j < indices_->size(); j++)
-    {
-        buff = buff + cloud_->points[ indices_->operator[](j) ].intensity;
-    }
+inline double
+mean_intensity (const pcl::PointCloud<PointType>::Ptr cloud_, pcl::IndicesPtr indices_)
+{
+  int buff = 0;
+  for (int j = 0; j < indices_->size (); j++)
+  {
+    buff = buff + cloud_->points[indices_->operator[] (j)].intensity;
+  }
 
-    return  (double)(buff / indices_->size());
+  return (double)(buff / indices_->size ());
 }
 
-double EVD(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPtr indices_) {
-    Eigen::Vector3f eigenVal;
-    Eigen::Vector4f centroid;
-    Eigen::Matrix3f covMat;
+double
+EVD (const pcl::PointCloud<PointType>::Ptr cloud_, pcl::IndicesPtr indices_)
+{
+  Eigen::Vector3f eigenVal;
+  Eigen::Vector4f centroid;
+  Eigen::Matrix3f covMat;
 
-    // Compute covariance matrix
-    pcl::computeMeanAndCovarianceMatrix (*cloud_ , *indices_, covMat, centroid);
+  // Compute covariance matrix
+  pcl::computeMeanAndCovarianceMatrix (*cloud_, *indices_, covMat, centroid);
 
-    // Compute eigenvectors
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver(covMat);
-    eigenVal[0] = eigensolver.eigenvalues()[0];
-    eigenVal[1] = eigensolver.eigenvalues()[1];
-    eigenVal[2] = eigensolver.eigenvalues()[2];
+  // Compute eigenvectors
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigensolver (covMat);
+  eigenVal[0] = eigensolver.eigenvalues ()[0];
+  eigenVal[1] = eigensolver.eigenvalues ()[1];
+  eigenVal[2] = eigensolver.eigenvalues ()[2];
 
-    // Compute sqrt( l1^2 + l2^2 + l3^2 )
-    return (double)sqrt( pow(eigenVal[0],2) + pow(eigenVal[1],2) + pow(eigenVal[2],2) );
+  // Compute sqrt( l1^2 + l2^2 + l3^2 )
+  return (double)sqrt (pow (eigenVal[0], 2) + pow (eigenVal[1], 2) + pow (eigenVal[2], 2));
 
 }
 
-double density(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPtr indices_) {
-    Eigen::Vector4f minPt, maxPt;
-    float volume =0;
-    
-    // Calculate min and max point distances coordinates
-    pcl::getMinMax3D(*cloud_, *indices_, minPt, maxPt);
+double
+density (const pcl::PointCloud<PointType>::Ptr cloud_, pcl::IndicesPtr indices_)
+{
+  Eigen::Vector4f minPt, maxPt;
+  float volume = 0;
 
-    
-    // Calculate volume
-    volume = module( maxPt[0] - minPt[0] ) * module( maxPt[1] - minPt[1] ) * module( maxPt[2] - minPt[2]);
+  // Calculate min and max point distances coordinates
+  pcl::getMinMax3D (*cloud_, *indices_, minPt, maxPt);
 
-    // Return density
-    return (double)(volume / indices_->size());
+  // Calculate volume
+  volume = module (maxPt[0] - minPt[0]) * module (maxPt[1] - minPt[1]) * module (maxPt[2] - minPt[2]);
+
+  // Return density
+  return (double)(volume / indices_->size ());
 }
 
-Eigen::Vector3f pca(const pcl::PointCloud<PointType>::Ptr cloud_ ,pcl::IndicesPtr indices_) {
+Eigen::Vector3f
+pca (const pcl::PointCloud<PointType>::Ptr cloud_, pcl::IndicesPtr indices_)
+{
 
-    pcl::PCA<pcl::PointXYZI> pca;
-    Eigen::Vector3f eigenVal(0.0, 0.0, 0.0);
-    int sum=0;
+  pcl::PCA<pcl::PointXYZI> pca;
+  Eigen::Vector3f eigenVal (0.0, 0.0, 0.0);
+  int sum = 0;
 
-    pca.setInputCloud(cloud_);
-    pca.setIndices(indices_);
-    
-    // If the cluster is bigger than 2 points, it computer the pca. 
-    // Otherwise it returns a nulla vector
-    if (indices_->size() > 2)
-        eigenVal = pca.getEigenValues();
-    else
-        return eigenVal;
+  pca.setInputCloud (cloud_);
+  pca.setIndices (indices_);
 
-    sum = eigenVal[0]+eigenVal[1]+eigenVal[2];
+  // If the cluster is bigger than 2 points, it computer the pca.
+  // Otherwise it returns a nulla vector
+  if (indices_->size () > 2)
+    eigenVal = pca.getEigenValues ();
+  else
+    return eigenVal;
 
-    //It returns the principal normalized eigenvalues
-    return eigenVal / sum;
+  sum = eigenVal[0] + eigenVal[1] + eigenVal[2];
+
+  //It returns the principal normalized eigenvalues
+  return eigenVal / sum;
 }
