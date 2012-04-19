@@ -39,17 +39,15 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/features/normal_3d.h>
 
-// TODO: Make the min_cluster_size parameter adaptive
-// TODO: Possibly implement a max cluster size check
+// TODO: The segment_size_coefficients could be improved to no longer depend on global inputs
 
 /** \brief Divides the remaining points into several clusters, each cluster likely to contain exactly one object.
- * \param[in] cloud_in A pointer to the input point cloud.
- * \param[in] global_data A struct holding information on the full point cloud and global input parameters.
- * \param[out] clusters_data An array of information holders for each cluster
- */
+  * \param[in] cloud_in A pointer to the input point cloud.
+  * \param[in] indices A pointer to the remaining indices.
+  * \param[out] clusters_data An array of information holders for each cluster
+  */
 void
-applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalData global_data,
-                       boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
+applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl::IndicesPtr indices, boost::shared_ptr<std::vector<ClusterData> > &clusters_data)
 {
   // ---- AUTOMATED INPUT PARAMETERS OF THIS SECTION ----
   // Primary speed / accuracy tradeoff for this section.
@@ -72,13 +70,17 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
   // Far distance points need to satisfy both of these thresholds to pass the similarity check.
   float far_curvature_threshold = 0.006 / pow (0.5 + global_data.cagg, 4);
   float far_intensity_threshold = 0.005 * global_data.i_size / pow (0.5 + global_data.cagg, 4);
-  // Below this size (octree representation) are classified as isolated points
-  int min_cluster_size = 8;
+  // The number of points in the octree representation gets multiplied by this coefficient to get to maximum cluster size
+  // Larger than this size means the cluster is part of the background and is not passed to the classifier since it is non-noise
+  float max_cluster_size_coefficient = global_data.plarge;
+  // The number of points in the octree representation gets multiplied by this coefficient to get to minimum cluster size
+  // Smaller than this size means the cluster is isolated and is not passed to the classifier since it is noise
+  float min_cluster_size_coefficient = global_data.psmall;
 
   // An octree representation class for temporary downsampling and density normalization
   pcl::octree::OctreePointCloudSearch<PointType> octree (resolution);
   pcl::PointCloud<PointType>::Ptr cloud_octree (new pcl::PointCloud<PointType>);
-  octree.setInputCloud (cloud_in, global_data.indices);
+  octree.setInputCloud (cloud_in, indices);
   octree.addPointsFromInputCloud ();
   octree.getOccupiedVoxelCenters (cloud_octree->points);
   cloud_octree->width = cloud_octree->points.size ();
@@ -161,7 +163,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
     }
 
     // If the found cluster is very small, tag the points as isolated
-    if (seed_queue.size () < min_cluster_size)
+    if (seed_queue.size () < min_cluster_size_coefficient * cloud_octree->width)
       for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
         isolated[seed_queue[sq_it]] = true;
   }
@@ -212,16 +214,19 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
     }
 
     // Upsample back from octree representation and store in output
-    ClusterData cluster;
-    float color = 512.0 + 2550.0 * rand () / (RAND_MAX + 1.0f);
-    for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
+    if (seed_queue.size () < max_cluster_size_coefficient * cloud_octree->width)
     {
-      cloud_octree->points[seed_queue[sq_it]].intensity = color;
-      std::vector<int> voxel_indices;
-      octree.voxelSearch (cloud_octree->points[seed_queue[sq_it]], voxel_indices);
-      cluster.indices->insert (cluster.indices->end (), voxel_indices.begin (), voxel_indices.end ());
+      ClusterData cluster;
+      float color = 2.0 + (rand () % 9);
+      for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
+      {
+        cloud_octree->points[seed_queue[sq_it]].intensity = color;
+        std::vector<int> voxel_indices;
+        octree.voxelSearch (cloud_octree->points[seed_queue[sq_it]], voxel_indices);
+        cluster.indices->insert (cluster.indices->end (), voxel_indices.begin (), voxel_indices.end ());
+      }
+      clusters_data->push_back (cluster);
     }
-    clusters_data->push_back (cluster);
   }
 
   // Third region growing pass: The remaining isolated points need to get mapped into clusters as well
@@ -279,5 +284,11 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, GlobalDat
     clusters_data->push_back (cluster);
   }
 
-  pcl::io::savePCDFileBinary ("temp_oc.pcd", *cloud_octree);
+  // Output the colored clusters octree
+  if (global_data.octrees)
+  {
+    pcl::io::savePCDFileBinary ("octree_clusters.pcd", *cloud_octree);
+    pcl::console::print_info (stderr, "- Saved ");
+    pcl::console::print_value (stderr, "octree_clusters.pcd ");
+  }
 }
