@@ -5,8 +5,8 @@
 #include <pcl/octree/octree.h>
 
 #include "regionGrowing.h"
-#include "svm_wrapper.h"
-#include "classification.h"
+#include "SVM/svm_wrapper.h"
+#include "extract_features.h"
 
 #include <pcl/features/vfh.h>
 #include <pcl/features/normal_3d.h>
@@ -23,9 +23,9 @@ int main (int argc, char **argv)
   pcl::PointCloud<PointType>::Ptr total_cloud (new pcl::PointCloud<PointType>);
   pcl::PointCloud<pcl::Normal>::Ptr noise_normals (new pcl::PointCloud<pcl::Normal>);
   pcl::PointCloud<pcl::Normal>::Ptr good_normals (new pcl::PointCloud<pcl::Normal>);
-  std::vector<pcl::IndicesPtr> clusteredGoodIndices;
-  std::vector<pcl::IndicesPtr> clusteredNoisyIndices;
-  std::vector<pcl::IndicesPtr> clusteredTotalIndices;
+  std::vector<pcl::IndicesPtr> clustered_good_indices;
+  std::vector<pcl::IndicesPtr> clustered_noisy_indices;
+  std::vector<pcl::IndicesPtr> clustered_total_indices;
   pcl::RegionGrowing<PointType> rgA, rgB;
 
   if (argc < 6)
@@ -37,7 +37,7 @@ int main (int argc, char **argv)
     cerr << "  - clustering_radius: radius used for neighbour search" << endl;
     cerr << "  - normals_offset: max angle between two point normals [radiants]" << endl;
     cerr << "  - output: outputs the cloud showing the classification results\n" << endl;
-    cerr << "  ex:    " << argv[0] << " noisy_points.pcd good_points.pcd 50 0.8 output.pcd\n" << endl;
+    cerr << "  ex:    " << argv[0] << " cropped_ghosts.pcd cropped_leaves.pcd 50 0 output.pcd\n" << endl;
     exit (0);
   }
 
@@ -63,7 +63,7 @@ int main (int argc, char **argv)
     ne.setKSearch (atof (argv[3]));
     ne.compute (*noise_normals);
     rgA.setNormals (noise_normals);
-    cout << "normals estimed for " << argv[1] << endl;
+    cout << "normals calculated for " << argv[1] << endl;
 
     rgB.setEpsAngle (atof (argv[4]));
     ne.setInputCloud (good_cloud);
@@ -71,120 +71,101 @@ int main (int argc, char **argv)
     ne.setKSearch (atof (argv[3]));
     ne.compute (*good_normals);
     rgB.setNormals (good_normals);
-    cout << "normals estimed for " << argv[2] << endl;
+    cout << "Normals calculated for " << argv[2] << endl;
   }
 
   // Create the clusters
   cout << "Clustering noisy points...";
 
   rgA.setGrowingDistance (atof (argv[3]));
+  rgA.cluster (&clustered_noisy_indices);
 
-  rgA.cluster (&clusteredNoisyIndices);
+  cout << "done. Found: " << clustered_noisy_indices.size() << " clusters." << endl;
+  cout << "Extracting point features_a...";
 
-  cout << "done. Found: " << clusteredNoisyIndices.size() << " clusters." << endl;
-
-  cout << "Extracting point featuresA...";
-
-  classification<PointType> featuresA (noise_cloud, clusteredNoisyIndices);
+  ExtractFeatures<PointType> features_a (noise_cloud, clustered_noisy_indices);
 
   cout << "done." << endl;
-
   cout << "Clustering good points...";
 
   rgB.setGrowingDistance (atof (argv[3]));
+  rgB.cluster (&clustered_good_indices);
 
-  rgB.cluster (&clusteredGoodIndices);
-
-  cout << "done. Found: " << clusteredGoodIndices.size() << " clusters." << endl;
+  cout << "done. Found: " << clustered_good_indices.size() << " clusters." << endl;
 
   // Extracting features from clusters
-  cout << "Extracting point featuresB...";
+  cout << "Extracting point features_b...";
 
-  // classification<PointType> featuresA(noise_cloud, clusteredNoisyIndices);
-  classification<PointType> featuresB (good_cloud, clusteredGoodIndices);
+  ExtractFeatures<PointType> features_b (good_cloud, clustered_good_indices);
 
   cout << "done." << endl;
 
   // Creating a single cloud with labels
   total_cloud->operator += (*noise_cloud);
-
   total_cloud->operator += (*good_cloud);
 
-  clusteredTotalIndices.insert (clusteredTotalIndices.end(), clusteredNoisyIndices.begin(), clusteredNoisyIndices.end());
+  clustered_total_indices.insert (clustered_total_indices.end(), clustered_noisy_indices.begin(), clustered_noisy_indices.end());
+  clustered_total_indices.insert (clustered_total_indices.end(), clustered_good_indices.begin(), clustered_good_indices.end());
 
-  clusteredTotalIndices.insert (clusteredTotalIndices.end(), clusteredGoodIndices.begin(), clusteredGoodIndices.end());
-
-  // Reprojecting the clusteredGoodIndices for the total cloud
-  for (int i = 0; i < clusteredGoodIndices.size(); i++)
-    for (int j = 0; j < clusteredGoodIndices[i]->size(); j++)
+  // Reprojecting the clustered_good_indices for the total cloud
+  for (int i = 0; i < clustered_good_indices.size(); i++)
+    for (int j = 0; j < clustered_good_indices[i]->size(); j++)
     {
-      clusteredGoodIndices[i]->operator[] (j) = clusteredGoodIndices[i]->operator[] (j) + noise_cloud->size();
+      clustered_good_indices[i]->operator[] (j) = clustered_good_indices[i]->operator[] (j) + noise_cloud->size();
     }
 
-  // Generating the vector for SVM training
-  pcl::SvmTrain train;
-
+  // Generating the class for SVM training
+  pcl::SVMTrain train;
+  
+  // Set parameters
   pcl::SVMParam param;
-
-  param.C = 8192;
-
-  param.gamma = 2;
-
-  param.probability = 1;
-
+  param.probability = 1; // To do probability estimation
   train.setParameters (param);
 
   cout << "Training the classifier...";
 
-  for (int i = 0; i < featuresA.features.size(); i++)
-    featuresA.features[i].label = new double (0); // 0 for noisy points
+  for (int i = 0; i < features_a.features.size(); i++)
+    features_a.features[i].label = 0.0f; // 0 for noisy points
 
-  for (int i = 0; i < featuresB.features.size(); i++)
-    featuresB.features[i].label = new double (1.0); // 1 for good points
+  for (int i = 0; i < features_b.features.size(); i++)
+    features_b.features[i].label = 1.0f; // 1 for good points
 
-  train.setInputTrainingSet (featuresA.features);
-
-  train.setInputTrainingSet (featuresB.features);
+  train.setInputTrainingSet (features_a.features); // Set input features_a
+  train.setInputTrainingSet (features_b.features); // Append features_b to already loaded features_a
 
   cout << "done" << endl;
 
-  train.setDebugMode (0);
+  train.setDebugMode (1);
+  train.trainClassifier(); // run the training
+  
+  // Save output files
+  train.saveNormTrainingSet ("normalized_training_set");
+  train.saveTrainingSet ("training_set");
+  train.saveClassifierModel ("classifier_model");
+ 
+  // Define the classification class
+  pcl::SVMClassify pred;
+  pred.setClassifierModel (train.getClassifierModel()); // Copy the classifier model from the training step
+  pred.setInputTrainingSet (features_a.features); // Set input features_a
+  pred.setInputTrainingSet (features_b.features); // Append features_b to already loaded features_a
+  pred.setProbabilityEstimates (1); // Probability estimation
+  pred.classificationTest(); // run the classification test to double-check the classifier
 
-  train.trainClassifier();
-
-  train.saveProblemNorm ("theatrea");
-
-  train.saveProblem ("theatreb");
-
-  train.saveModel ("output.model");
-
-  pcl::SvmClassify pred;
-
-  pred.setInputModel (train.getOutputModel());
-
-  pred.setInputTrainingSet (featuresA.features);
-
-  pred.setInputTrainingSet (featuresB.features);
-
-  pred.setProbabilityEstimates (1);
-
-  pred.predictionTest();
-
+  
   pcl::PointCloud<PointType>::Ptr buff_cloud (new pcl::PointCloud<PointType>);
-
   pcl::PointCloud<PointType>::Ptr output_cloud (new pcl::PointCloud<PointType>);
+  std::vector< std::vector<double> > classification_out;
 
-  std::vector< std::vector<double> > prediction;
+  pred.getClassificationResult (classification_out); // get the classification result
 
-  pred.getPrediction (prediction);
-
-  for (int i = 0; i < clusteredTotalIndices.size(); i++)
+  // Create a cloud highlighting the classification result
+  for (int i = 0; i < clustered_total_indices.size(); i++)
   {
-    pcl::copyPointCloud (*total_cloud, clusteredTotalIndices[i].operator*(), *buff_cloud);
+    pcl::copyPointCloud (*total_cloud, clustered_total_indices[i].operator*(), *buff_cloud);
     int j;
 
     for (j = 0; j < buff_cloud->size();j++)
-      if (prediction[i][0] == 1)
+      if (classification_out[i][0] == 1)
       {
         buff_cloud->points[j].intensity = 255;
       }
@@ -199,6 +180,7 @@ int main (int argc, char **argv)
     buff_cloud->clear();
   }
 
+  // Save the classified cloud
   pcl::io::savePCDFileBinary (argv[5], *output_cloud);
 
   return 0;
