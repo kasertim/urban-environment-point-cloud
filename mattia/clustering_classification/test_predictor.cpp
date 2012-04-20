@@ -5,8 +5,8 @@
 #include <pcl/octree/octree.h>
 
 #include "regionGrowing.h"
-#include "svm_wrapper.h"
-#include "classification.h"
+#include "SVM/svm_wrapper.h"
+#include "extract_features.h"
 
 using namespace std;
 typedef pcl::PointXYZI PointType;
@@ -30,8 +30,8 @@ int main (int argc, char **argv)
   pcl::RegionGrowing<PointType> rg;
 
   // Prediction
-  pcl::SvmClassify pred;
-  pred.loadModel ("output.model");
+  pcl::SVMClassify pred;
+  pred.loadClassifierModel ("output.model");
 
   size_t found;
   string filename;
@@ -68,32 +68,24 @@ int main (int argc, char **argv)
     // Extracting features from clusters
     cout << "Extracting point features...";
 
-    classification<PointType> features (input_cloud, clusteredIndices);
-
+    ExtractFeatures<PointType> features (input_cloud, clusteredIndices);
     cout << "done." << endl;
 
     pred.setInputTrainingSet (features.features);
-
     string out_name;
 
     out_name.assign (argv[1]);
-
     out_name.append (".model");
-
     //pred.saveProblem(out_name.data());
-    pred.saveProblem ("ab");
-
-    pred.saveProblemNorm ("ba");
-
+    pred.saveClassProblem ("ab");
+    pred.saveNormClassProblem ("ba");
     cout << "Computing classification..." ;
 
-    pred.predict();
-
+    pred.classification();
     cout << "done." << endl;
 
     std::vector< std::vector<double> > prediction;
-
-    pred.getPrediction (prediction);
+    pred.getClassificationResult (prediction);
 
     // Save the results
     for (int i = 0; i < clusteredIndices.size(); i++)
@@ -132,13 +124,13 @@ int main (int argc, char **argv)
     test.SV[1].value = 0.35;
 
     pred.setProbabilityEstimates (1);
-    pred.loadProblem (argv[1]);
+    pred.loadClassProblem (argv[1]);
     cout << "Computing classification..." ;
-    pred.predict();
-    pred.predictionTest();
-    pred.savePrediction ("prediction");
+    pred.classification();
+    pred.classificationTest();
+    pred.saveClassificationResult ("prediction");
     std::vector<double> out;
-    out =  pred.predict (test);
+    out =  pred.classification (test);
     cout << "Single prediction: ";
 
     for (int i = 0 ; i < out.size(); i++)
@@ -148,13 +140,9 @@ int main (int argc, char **argv)
 
     //cout << "va "<< pred.prob_.l << endl;
 
-    pred.saveProblem ("ab");
-
-    pred.saveProblemNorm ("ba");
-
-    pred.saveModel ("output.model.2");
-
-
+    pred.saveClassProblem ("ab");
+    pred.saveNormClassProblem ("ba");
+    pred.saveClassifierModel ("output.model.2");
 
     return 0;
   }
