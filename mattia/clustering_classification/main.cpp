@@ -120,6 +120,8 @@ int main (int argc, char **argv)
   // Set parameters
   pcl::SVMParam param;
   param.probability = 1; // To do probability estimation
+  param.C = 8192;
+  param.gamma = 2;
   train.setParameters (param);
 
   cout << "Training the classifier...";
