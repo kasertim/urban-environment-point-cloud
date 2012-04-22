@@ -79,31 +79,31 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
 
   // An octree representation class for temporary downsampling and density normalization
   pcl::octree::OctreePointCloudSearch<PointType> octree (resolution);
-  pcl::PointCloud<PointType>::Ptr cloud_octree (new pcl::PointCloud<PointType>);
+  //pcl::PointCloud<PointType>::Ptr global_data.cloud_octree (new pcl::PointCloud<PointType>);
   octree.setInputCloud (cloud_in, indices);
   octree.addPointsFromInputCloud ();
-  octree.getOccupiedVoxelCenters (cloud_octree->points);
-  cloud_octree->width = cloud_octree->points.size ();
-  cloud_octree->height = 1;
+  octree.getOccupiedVoxelCenters (global_data.cloud_octree->points);
+  global_data.cloud_octree->width = global_data.cloud_octree->points.size ();
+  global_data.cloud_octree->height = 1;
 
   // A kdtree class for nearest neighbor searching
   pcl::search::KdTree<PointType>::Ptr searcher (new pcl::search::KdTree<PointType>);
-  searcher->setInputCloud (cloud_octree);
+  searcher->setInputCloud (global_data.cloud_octree);
 
   // Feature estimation: Curvature
   pcl::NormalEstimation<PointType, pcl::Normal> ne;
   pcl::PointCloud<pcl::Normal> cloud_normals;
-  ne.setInputCloud (cloud_octree);
+  ne.setInputCloud (global_data.cloud_octree);
   ne.setSearchMethod (searcher);
   ne.setRadiusSearch (far_distance_threshold);
   ne.compute (cloud_normals);
 
   // Feature estimation: Intensity
-  std::vector<int> intensity (cloud_octree->width, 0.0);
+  std::vector<int> intensity (global_data.cloud_octree->width, 0.0);
   for (size_t p_it = 0; p_it < intensity.size (); ++p_it)
   {
     std::vector<int> voxel_indices;
-    octree.voxelSearch (cloud_octree->points[p_it], voxel_indices);
+    octree.voxelSearch (global_data.cloud_octree->points[p_it], voxel_indices);
     for (size_t vi_it = 0; vi_it < voxel_indices.size (); ++vi_it)
       intensity[p_it] += (*cloud_in).points[voxel_indices[vi_it]].intensity;
     intensity[p_it] /= voxel_indices.size ();
@@ -116,11 +116,11 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
   // 3) The remaining isolated points need to get mapped into clusters for output as well
 
   // Region growing tags
-  std::vector<bool> processed (cloud_octree->width, false);
-  std::vector<bool> isolated (cloud_octree->width, false);
+  std::vector<bool> processed (global_data.cloud_octree->width, false);
+  std::vector<bool> isolated (global_data.cloud_octree->width, false);
 
   // First region growing pass: Tag isolated points
-  for (size_t p_it = 0; p_it < cloud_octree->width; ++p_it)
+  for (size_t p_it = 0; p_it < global_data.cloud_octree->width; ++p_it)
   {
     // Only iterate through potential seed points
     if (processed[p_it])
@@ -163,13 +163,13 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
     }
 
     // If the found cluster is very small, tag the points as isolated
-    if (seed_queue.size () < min_cluster_size_coefficient * cloud_octree->width)
+    if (seed_queue.size () < min_cluster_size_coefficient * global_data.cloud_octree->width)
       for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
         isolated[seed_queue[sq_it]] = true;
   }
 
   // Second region growing pass: The isolated points possibly isolated due to over-segmentation are now added to a nearby big cluster
-  for (size_t p_it = 0; p_it < cloud_octree->width; ++p_it)
+  for (size_t p_it = 0; p_it < global_data.cloud_octree->width; ++p_it)
   {
     // Only iterate through potential seed points, isolated points are not allowed to be a seed
     if (!processed[p_it] || isolated[p_it])
@@ -214,15 +214,15 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
     }
 
     // Upsample back from octree representation and store in output
-    if (seed_queue.size () < max_cluster_size_coefficient * cloud_octree->width)
+    if (seed_queue.size () < max_cluster_size_coefficient * global_data.cloud_octree->width)
     {
       ClusterData cluster;
       float color = 2.0 + (rand () % 9);
       for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
       {
-        cloud_octree->points[seed_queue[sq_it]].intensity = color;
+        global_data.cloud_octree->points[seed_queue[sq_it]].intensity = color;
         std::vector<int> voxel_indices;
-        octree.voxelSearch (cloud_octree->points[seed_queue[sq_it]], voxel_indices);
+        octree.voxelSearch (global_data.cloud_octree->points[seed_queue[sq_it]], voxel_indices);
         cluster.indices->insert (cluster.indices->end (), voxel_indices.begin (), voxel_indices.end ());
       }
       clusters_data->push_back (cluster);
@@ -230,7 +230,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
   }
 
   // Third region growing pass: The remaining isolated points need to get mapped into clusters as well
-  for (size_t p_it = 0; p_it < cloud_octree->width; ++p_it)
+  for (size_t p_it = 0; p_it < global_data.cloud_octree->width; ++p_it)
   {
     // Only iterate through the remaining unprocessed points, which are all truly isolated ones
     if (!processed[p_it])
@@ -277,7 +277,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
     for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
     {
       std::vector<int> voxel_indices;
-      octree.voxelSearch (cloud_octree->points[seed_queue[sq_it]], voxel_indices);
+      octree.voxelSearch (global_data.cloud_octree->points[seed_queue[sq_it]], voxel_indices);
       cluster.indices->insert (cluster.indices->end (), voxel_indices.begin (), voxel_indices.end ());
     }
     cluster.is_isolated = true;
@@ -287,7 +287,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
   // Output the colored clusters octree
   if (global_data.octrees)
   {
-    pcl::io::savePCDFileBinary ("octree_clusters.pcd", *cloud_octree);
+    pcl::io::savePCDFileBinary ("octree_clusters.pcd", *global_data.cloud_octree);
     pcl::console::print_info (stderr, "- Saved ");
     pcl::console::print_value (stderr, "octree_clusters.pcd ");
   }

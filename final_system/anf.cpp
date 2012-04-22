@@ -49,16 +49,18 @@ struct GlobalData
 {
   float x_min, y_min, z_min, i_min, x_size, y_size, z_size, i_size;
   float scale, cagg, pground, plarge, psmall;
-  std::string model; // I'd rather see the I/O in anf.cpp and that the contents is passed to SVM
+  std::string model, cloud_name; // I'd rather see the I/O in anf.cpp and that the contents is passed to SVM
   bool train, octrees;
+  pcl::PointCloud<PointType>::Ptr cloud_octree;
 
   GlobalData () :
-    x_min (std::numeric_limits<float>::max ()), y_min (std::numeric_limits<float>::max ()),
-    z_min (std::numeric_limits<float>::max ()), i_min (std::numeric_limits<float>::max ()),
-    x_size (std::numeric_limits<float>::min ()), y_size (std::numeric_limits<float>::min ()),
-    z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
-    scale (1500.0), cagg (0.5), pground (0.05), plarge (0.1), psmall (0.001),
-    model ("svm_model.model"), train (false), octrees (false)
+      x_min (std::numeric_limits<float>::max ()), y_min (std::numeric_limits<float>::max ()),
+      z_min (std::numeric_limits<float>::max ()), i_min (std::numeric_limits<float>::max ()),
+      x_size (std::numeric_limits<float>::min ()), y_size (std::numeric_limits<float>::min ()),
+      z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
+      scale (1500.0), cagg (0.5), pground (0.05), plarge (0.1), psmall (0.001),
+      /*model ("svm_classifier.model"),*/ train (false), octrees (false),
+      cloud_octree(new pcl::PointCloud<PointType>)
   {}
 };
 
@@ -69,15 +71,15 @@ struct ClusterData
   pcl::SVMData features;
   // Classification bool
   bool is_isolated, is_good, is_tree, is_ghost;
-  
+
   // Classification probabilities
   float is_good_prob, is_tree_prob, is_ghost_prob;
 
   ClusterData () :
-    indices (new std::vector<int>),
-    features (),
-    is_isolated (false), is_good (false), is_tree (false), is_ghost (false),
-    is_good_prob (0.0), is_tree_prob (0.0), is_ghost_prob (0.0)
+      indices (new std::vector<int>),
+      features (),
+      is_isolated (false), is_good (false), is_tree (false), is_ghost (false),
+      is_good_prob (0.0), is_tree_prob (0.0), is_ghost_prob (0.0)
   {}
 };
 
@@ -192,7 +194,7 @@ void
 printHelp (char **argv)
 {
   pcl::console::print_error ("Correct syntax: ");
-  pcl::console::print_value ("%s input.pcd output.pcd svm_model.model <options>\n", argv[0]);
+  pcl::console::print_value ("%s input.pcd output.pcd svm_classify.model <options>\n", argv[0]);
   pcl::console::print_info ("Options:\n");
   pcl::console::print_info (" -train     if present, use the input data to train the SVM and append to the model\n");
   pcl::console::print_info (" -scale x   x = distance of one meter\n");
@@ -214,7 +216,9 @@ main (int argc, char** argv)
   {
     printHelp (argv);
     return (-1);
-  }
+  } 
+  else
+    global_data.cloud_name.assign(argv[pcd_indices[0]]);
 
   // Parse model arguments
   std::vector<int> model_indices = pcl::console::parse_file_extension_argument (argc, argv, ".model");
