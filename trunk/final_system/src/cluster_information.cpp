@@ -72,7 +72,7 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
   //For each cluster, point data features are calculates
   for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
   {
-    pcl::svmDataPoint data; // Temp object
+    pcl::SVMDataPoint data; // Temp object
     (*clusters_data)[c_it].features.SV.clear (); // Reset the current features
 
     // Save carcinality

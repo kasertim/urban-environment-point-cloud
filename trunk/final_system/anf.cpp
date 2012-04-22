@@ -66,7 +66,7 @@ struct GlobalData
 struct ClusterData
 {
   pcl::IndicesPtr indices;
-  pcl::svmData features;
+  pcl::SVMData features;
   // Classification bool
   bool is_isolated, is_good, is_tree, is_ghost;
   
