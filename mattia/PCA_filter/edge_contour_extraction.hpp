@@ -72,7 +72,7 @@ pcl::EdgeContourExtraction<PointT>::applyFilter (PointCloud &output)
     std::vector<float> nn_dists (mean_k_);
 
     pcl::PCA<PointT> pca;
-    std::cout <<"n points "<< indices_->size() << std::endl;
+//     std::cout <<"n points "<< indices_->size() << std::endl;
     std::vector< float > eigval (indices_->size ());
     
     // Go over all the points and the principal eigenvalue
