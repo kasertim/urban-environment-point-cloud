@@ -1,0 +1,52 @@
+[Buildset]
+BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00\x14\x00P\x00C\x00A\x00_\x00f\x00i\x00l\x00t\x00e\x00r)
+
+[CMake]
+BuildDirs=/media/DATA/TRCS/urban-environment-point-cloud/mattia/PCA_filter/build
+CMakeDir=/usr/share/cmake-2.8/Modules
+Current CMake Binary=file:///usr/bin/cmake
+CurrentBuildDir=file:///media/DATA/TRCS/urban-environment-point-cloud/mattia/PCA_filter/build
+CurrentBuildType=Release
+CurrentInstallDir=file:///usr/local
+Extra Arguments=
+ProjectRootRelative=./
+
+[Launch]
+Launch Configurations=Launch Configuration 0,Launch Configuration 1
+
+[Launch][Launch Configuration 0]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=New Native Application Configuration
+Type=Native Application
+
+[Launch][Launch Configuration 0][Data]
+Arguments=table.pcd 50 0.66
+Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
+Dependency Action=Nothing
+EnvironmentGroup=default
+Executable=
+External Terminal=konsole --noclose --workdir %workdir -e %exe
+Project Target=PCA_filter,pca_filter
+Use External Terminal=false
+Working Directory=
+isExecutable=false
+
+[Launch][Launch Configuration 1]
+Configured Launch Modes=debug
+Configured Launchers=gdb
+Name=createcloud
+Type=Native Application
+
+[Launch][Launch Configuration 1][Data]
+Configured from ProjectItem=PCA_filter,createcloud
+Project Target=PCA_filter,createcloud
+Working Directory=file:///media/DATA/TRCS/urban-environment-point-cloud/mattia/PCA_filter/build/
+isExecutable=false
+
+[MakeBuilder]
+Default Make Environment Profile=0
+Number Of Jobs=1
+
+[Project]
+VersionControlSupport=kdevsubversion

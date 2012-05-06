@@ -9,21 +9,19 @@ using namespace std;
 typedef pcl::PointXYZ PointType;
 
 int main(int argc, char **argv) {
-    
+  
+  if(argc < 4)
+  {
+    std::cout << "Please specify input cloud, number of neighbours and tolerance" << std::endl;
+    std::cout << "  ex: "<< argv[0] << " table.pcd 100 0.66" << std::endl;
+  }
+  
   pcl::PointCloud<PointType>::Ptr cloud_ (new pcl::PointCloud<PointType>);
   
       // Load the clouds
     if (pcl::io::loadPCDFile (argv[1], *cloud_))
         return 0;
-    
-//     pcl::RadiusOutlierRemoval<PointType> ror;
-//     ror.setInputCloud(cloud_);
-//     ror.setRadiusSearch(0.01);
-//     ror.setMinNeighborsInRadius(10);
-//     ror.filter(*cloud_);
-    /*
-    pcl::io::savePCDFile("table_out.pcd",*cloud_);*/
-   
+
     pcl::EdgeContourExtraction<PointType> pr;
     pr.setInputCloud(cloud_);
     pr.setEigMeanK(atof(argv[2]));
@@ -31,15 +29,15 @@ int main(int argc, char **argv) {
     //pr.setNegative(1);
     pr.filter(*cloud_);
     
-    std::string ciaoZio, command;
-    ciaoZio.assign("out_");
-    ciaoZio.append(argv[1]);
-    pcl::io::savePCDFileBinary(ciaoZio.data(),*cloud_);
+    std::string strOut, command;
+    strOut.assign("out_");
+    strOut.append(argv[1]);
+    pcl::io::savePCDFileBinary(strOut.data(),*cloud_);
     
     command.assign("pcd_viewer -multiview 1 ");
     command.append(argv[1]);
     command.append(" ");
-    command.append(ciaoZio.data());
+    command.append(strOut.data());
     system(command.data());
     
     return 0;
