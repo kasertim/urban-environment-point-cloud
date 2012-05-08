@@ -217,7 +217,8 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
     if (seed_queue.size () < max_cluster_size_coefficient * global_data.cloud_octree->width)
     {
       ClusterData cluster;
-      float color = 2.0 + (rand () % 9);
+      //float color = 2.0 + (rand () % 9);
+      int color = rand () % 256;
       for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
       {
         global_data.cloud_octree->points[seed_queue[sq_it]].intensity = color;
@@ -290,5 +291,6 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
     pcl::io::savePCDFileBinary ("octree_clusters.pcd", *global_data.cloud_octree);
     pcl::console::print_info (stderr, "- Saved ");
     pcl::console::print_value (stderr, "octree_clusters.pcd ");
+     system("pcl_pcd_viewer -multiview 1 octree_clusters.pcd octree_planes.pcd") ;
   }
 }

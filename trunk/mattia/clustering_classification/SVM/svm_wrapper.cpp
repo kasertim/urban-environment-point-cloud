@@ -40,7 +40,7 @@
 #ifndef PCL_SVM_WRAPPER_HPP_
 #define PCL_SVM_WRAPPER_HPP_
 
-#include "svm_wrapper.h"
+#include "../../svm_wrapper.h"
 #include <assert.h>
 #include <fstream>
 
@@ -246,7 +246,7 @@ pcl::SVMTrain::trainClassifier ()
   if (training_set_.size() == 0)
   {
     // to be sure to have loaded the training set
-    PCL_ERROR ("[pcl::%s::trainClassifier] Training data note set!\n", getClassName ().c_str ());
+    PCL_ERROR ("[pcl::%s::trainClassifier] Training data not set!\n", getClassName ().c_str ());
     return 0;
   }
   
@@ -276,6 +276,11 @@ pcl::SVMTrain::trainClassifier ()
   {
     SVMModel* out;
     out = (SVMModel*) svm_train (&prob_, &param_);
+    if (out == NULL)
+    {
+      PCL_ERROR ("[pcl::%s::trainClassifier] Error taining the classifier model.\n", getClassName ().c_str ());
+      return 0;
+    }
     model_ = *out;
     model_.scaling = scaling_.obj;
     free (out);
@@ -529,6 +534,12 @@ pcl::SVMClassify::loadClassifierModel (const char *filename)
 {
   SVMModel *out;
   out = (SVMModel*) svm_load_model (filename);
+  if (out == NULL)
+  {
+    PCL_ERROR ("[pcl::%s::loadClassifierModel] Can't open classifier model %s.\n", getClassName ().c_str (), filename);
+    return 0;
+  }
+  
   model_ = *out;
   free (out);
 

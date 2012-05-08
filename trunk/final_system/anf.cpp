@@ -59,7 +59,7 @@ struct GlobalData
       x_size (std::numeric_limits<float>::min ()), y_size (std::numeric_limits<float>::min ()),
       z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
       scale (1500.0), cagg (0.5), pground (0.05), plarge (0.1), psmall (0.001),
-      /*model ("svm_classifier.model"),*/ train (false), octrees (false),
+      octrees (false),
       cloud_octree(new pcl::PointCloud<PointType>)
   {}
 };
@@ -196,7 +196,7 @@ printHelp (char **argv)
   pcl::console::print_error ("Correct syntax: ");
   pcl::console::print_value ("%s input.pcd output.pcd svm_classify.model <options>\n", argv[0]);
   pcl::console::print_info ("Options:\n");
-  pcl::console::print_info (" -train     if present, use the input data to train the SVM and append to the model\n");
+  //pcl::console::print_info (" -train     if present, use the input data to train the SVM and append to the model\n");
   pcl::console::print_info (" -scale x   x = distance of one meter\n");
   pcl::console::print_info (" -cagg x    x = aggressiveness of the clustering step (1.0 = prone to over-segment, 0.0 = prone to under-segment, default = 0.5)\n");
   pcl::console::print_info (" -pground x x = the percentage of ground planes\n");
@@ -231,7 +231,6 @@ main (int argc, char** argv)
   pcl::console::parse_argument (argc, argv, "-pground", global_data.pground);
   pcl::console::parse_argument (argc, argv, "-plarge", global_data.plarge);
   pcl::console::parse_argument (argc, argv, "-psmall", global_data.psmall);
-  global_data.train = pcl::console::find_switch (argc, argv, "-train");
   global_data.octrees = pcl::console::find_switch (argc, argv, "-octrees");
 
   // Load input cloud

@@ -47,7 +47,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <limits.h>
-#include "svm.h"
+#include "../../svm.h"
 #include <iostream>
 int libsvm_version = LIBSVM_VERSION;
 typedef float Qfloat;
