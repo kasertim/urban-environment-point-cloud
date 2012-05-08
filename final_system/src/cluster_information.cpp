@@ -42,6 +42,12 @@
 inline float
 module (float a);
 
+// Calculates the average adjacency in the octree representation
+// Could be representative for the eigenvalues of PCA
+// A high number / dimensionality should mainly occur for leaves, hopefully regardless of amount of leaves in cluster
+float
+octree_adjacency (const pcl::PointCloud<PointType>::Ptr cloud, const pcl::IndicesPtr indices, float resolution);
+
 // Extract the cardinality of cluster
 inline int
 cardinality (pcl::IndicesPtr indices_);
@@ -111,7 +117,46 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
     if (data.value != 0.0 && std::isfinite (data.value))
       (*clusters_data)[c_it].features.SV.push_back (data);
 
+    // Average octree adjacency of points
+    // The resolution is the important parameter here: in the paper they vary this parameter and let the SVM select
+    // the most appropriate. We could also suffice with a fixed scale I hope.
+    data.idx = 6;
+    data.value = octree_adjacency (cloud_in, (*clusters_data)[c_it].indices, 0.07 * global_data.scale);
+    (*clusters_data)[c_it].features.SV.push_back (data);
+
   }
+}
+
+float
+octree_adjacency (const pcl::PointCloud<PointType>::Ptr cloud, const pcl::IndicesPtr indices, float resolution)
+{
+  // octree for downsampling
+  pcl::octree::OctreePointCloudSearch<PointType> octree (resolution);
+  octree.setInputCloud (cloud, indices);
+  octree.addPointsFromInputCloud ();
+
+  // Results in cloud_octree
+  pcl::PointCloud<PointType>::Ptr cloud_octree (new pcl::PointCloud<PointType>);
+  octree.getOccupiedVoxelCenters (cloud_octree->points);
+  cloud_octree->width = cloud_octree->points.size ();
+  cloud_octree->height = 1;
+
+  // kdtree for searching
+  pcl::search::KdTree<PointType>::Ptr searcher (new pcl::search::KdTree<PointType>);
+  searcher->setInputCloud (cloud_octree);
+  std::vector<int> nn_indices;
+  std::vector<float> nn_distances;
+
+  // Search radius is crucial:
+  // 1.01 * resolution -- A maximum of 6 neighbors can be found (only orthogonally adjacent)
+  // 1.42 * resolution -- A maximum of 18 neighbors can be found (also planar diagonally adjacent)
+  // 1.74 * resolution -- A maximum of 26 neighbors can be found (also volumetric diagonally adjacent)
+  float output = 0.0;
+  for (size_t p_it = 0; p_it < cloud_octree->width; ++p_it)
+    output += (float)searcher->radiusSearch (p_it, 1.42 * resolution, nn_indices, nn_distances);
+
+  // Compute the average
+  return (output / (float)cloud_octree->width);
 }
 
 inline float

@@ -74,7 +74,7 @@ applyPlaneSegmentation (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::Ind
 //  sacs.setModelType (pcl::SACMODEL_PLANE);
 //  sacs.setOptimizeCoefficients (true);
   sacs.setDistanceThreshold (distance_threshold);
-  sacs.setMaxIterations (300);
+  sacs.setMaxIterations (500);
   sacs.setAxis (Eigen::Vector3f (0.0, 0.0, 1.0));
   sacs.setEpsAngle (0.314);
 
