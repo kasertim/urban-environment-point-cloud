@@ -36,8 +36,6 @@
  */
 
 #include "../svm_wrapper.h"
-#include <pcl/kdtree/kdtree_flann.h>
-#include <pcl/filters/voxel_grid.h>
 #include <boost/thread/thread.hpp>
 #include <pcl/visualization/cloud_viewer.h>
 #include <fstream>
@@ -46,13 +44,14 @@
 
 // Initialize the Visualizer
 void
-initVisualizer (pcl::visualization::PCLVisualizer &viewer);
+initVisualizer (pcl::visualization::PCLVisualizer &viewer,
+                const pcl::PointCloud<PointType>::Ptr cloud_in);
 
 // Callback of the mouse input
 void
-pp_callback (const pcl::visualization::PointPickingEvent &event, void *point);
+pp_callback (const pcl::visualization::PointPickingEvent &event, void *index);
 
-// TODO The function checks for the existence of a classifier model inside the main directory.
+// TODO The function checks for the existence of a classifier model inside the main directory. 
 // TODO If it fails to load the model, it start a new training procedure of the classifier.
 // TODO In this version of the program, there is only one kind of noise (no distinction between vegetation and ghosts)
 
@@ -89,8 +88,6 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
   }
   else
   {
-    // Currently: analyze on voxels of 0.08 x 0.08 x 0.08 meter with slight alteration based on cluster aggressiveness
-    float resolution = 0.08 * global_data.scale / pow (0.5 + global_data.cagg, 2);
     // Create the viewer
     pcl::visualization::PCLVisualizer viewer ("cluster viewer");
 
@@ -117,66 +114,54 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
     // Build a cloud with unlabelled clusters
     pcl::PointCloud<PointType>::Ptr fragm_cloud (new pcl::PointCloud<PointType>);
 
-    // Initialize the viewer
-    initVisualizer (viewer);
-    PointType picked_point; // changed whether a mouse click occours. It saves the selected cluster index
-    viewer.registerPointPickingCallback (&pp_callback, (void *) &picked_point);
-    
     // Create a cloud with unlabelled clusters
     for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
       if (!lab_cluster[c_it])
       {
         pcl::PointCloud<PointType>::Ptr cluster (new pcl::PointCloud<PointType>);
         pcl::copyPointCloud (*cloud_in, * (*clusters_data) [c_it].indices, *cluster);
-	
-	// Downsample cluster
-	pcl::VoxelGrid<PointType> sor;
-	sor.setInputCloud (cluster);
-        sor.setLeafSize (resolution, resolution, resolution);
-	sor.filter (*cluster);
-	
-	// Copy cluster into a global cloud
         fragm_cloud->operator+= (*cluster);
 
         // Fill a vector to memorize the original affiliation of a point to the cluster
-        for (int clust_pt = 0; clust_pt < cluster->size(); clust_pt++)
+        for (int clust_pt = 0; clust_pt < (*clusters_data) [c_it].indices->size(); clust_pt++)
           pt_clst_pos.push_back (c_it);
-
-        // Add cluster to the viewer
-        std::stringstream cluster_name;
-        cluster_name << "cluster" << c_it;
-        pcl::visualization::PointCloudColorHandlerGenericField<PointType> rgb (cluster, "intensity");// Get color handler for the cluster cloud
-        viewer.addPointCloud<PointType> (cluster, rgb, cluster_name.str().data());
       }
-    
-    // Create a tree for point searching in the total cloud
-    pcl::KdTreeFLANN<pcl::PointXYZI> tree_;
-    tree_.setInputCloud (fragm_cloud);
 
+    // Initialize the viewer
+    initVisualizer (viewer, fragm_cloud);
+    int picked_idx = -1; // changed whether a mouse click occours. It saves the selected cluster index
+    viewer.registerPointPickingCallback (&pp_callback, (void *) &picked_idx);
     // Visualize the whole cloud
     while (!viewer.wasStopped())
     {
-      if (picked_point.x != 0.0f || picked_point.y != 0.0f || picked_point.z != 0.0f)  // if a point is clicked
+      if (picked_idx != -1) // if a point is clicked
       {
-//          cout << picked_point.x << " " << picked_point.y << " " << picked_point.z << endl;
-        std::vector<int> pointIdxNKNSearch (1);
-        std::vector<float> pointNKNSquaredDistance (1);
-        tree_.nearestKSearch (picked_point, 1, pointIdxNKNSearch, pointNKNSquaredDistance);
-//         cout << fragm_cloud->points[pointIdxNKNSearch[0]].x
-//              << " " << fragm_cloud->points[pointIdxNKNSearch[0]].y
-//              << " " << fragm_cloud->points[pointIdxNKNSearch[0]].z
-//              << endl;
-//         cout << pt_clst_pos[pointIdxNKNSearch[0]] << endl << endl;
+        lab_cluster[ pt_clst_pos[picked_idx] ] = 1; // cluster is marked as labelled
+        (*clusters_data) [pt_clst_pos[picked_idx]].features.label = 1; // the cluster is set as a noise
 
-        std::stringstream cluster_name;
-        cluster_name << "cluster" << pt_clst_pos[pointIdxNKNSearch[0]];
-        lab_cluster[ pt_clst_pos[pointIdxNKNSearch[0]] ] = 1; // cluster is marked as labelled
-        (*clusters_data) [pt_clst_pos[pointIdxNKNSearch[0]]].features.label = 1; // the cluster is set as a noise
-        viewer.removePointCloud (cluster_name.str().data());
+        fragm_cloud->clear();
+        pt_clst_pos.clear();
+	
+        // Create a new cloud with unlabelled clusters
+        for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
+          if (!lab_cluster[c_it])
+          {
+            pcl::PointCloud<PointType>::Ptr cluster (new pcl::PointCloud<PointType>);
+            pcl::copyPointCloud (*cloud_in, * (*clusters_data) [c_it].indices, *cluster);
+            fragm_cloud->operator+= (*cluster);
 
-        picked_point.x = 0.0f;
-        picked_point.y = 0.0f;
-        picked_point.z = 0.0f;
+            // Fill a vector to memorize the original affiliation of a point to the cluster
+            for (int clust_pt = 0; clust_pt < (*clusters_data) [c_it].indices->size(); clust_pt++)
+              pt_clst_pos.push_back (c_it);
+          }
+          
+        // remove the old cloud
+        viewer.removePointCloud ("cloud");
+	// Get color handler for the cluster cloud
+        pcl::visualization::PointCloudColorHandlerGenericField<PointType> rgb (fragm_cloud, "intensity");
+        viewer.addPointCloud<PointType> (fragm_cloud, rgb, "cloud");
+
+        picked_idx = -1;
       }
       boost::this_thread::sleep (boost::posix_time::microseconds (100000));
       viewer.spinOnce (500);
@@ -265,7 +250,8 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
 };
 
 void
-initVisualizer (pcl::visualization::PCLVisualizer &viewer)
+initVisualizer (pcl::visualization::PCLVisualizer &viewer,
+                const pcl::PointCloud<PointType>::Ptr cloud_in)
 {
   // Setting the initial viewer parameters
   viewer.initCameraParameters ();
@@ -278,16 +264,22 @@ initVisualizer (pcl::visualization::PCLVisualizer &viewer)
   viewer.camera_.pos[1] = 20000;
   viewer.camera_.pos[2] = 2500;
   viewer.updateCamera ();
+
+  // Get color handler for the cluster cloud
+  pcl::visualization::PointCloudColorHandlerGenericField<PointType> rgb (cloud_in, "intensity");
+  viewer.addPointCloud<PointType> (cloud_in, rgb, "cloud");
+  
   viewer.addText ("Shift + click to select noisy objects", 50, 300, "user");
+
 }
 
 void
-pp_callback (const pcl::visualization::PointPickingEvent &event, void *point)
+pp_callback (const pcl::visualization::PointPickingEvent &event, void *index)
 {
   if (event.getPointIndex () == -1)
     return;
-  PointType *idx;
-  idx = static_cast<PointType *> (point);
+  int *idx;
+  idx = static_cast<int *> (index);
   // A single point has been selected
-  event.getPoint ( (*idx).x, (*idx).y, (*idx).z);
+  *idx = event.getPointIndex();
 }
