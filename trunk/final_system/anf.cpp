@@ -130,6 +130,11 @@ compute (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::PointCloud<PointTy
   pcl::console::print_info (" ms]\n");
   pcl::console::print_info (stderr, "Number of clusters found: ");
   pcl::console::print_value (stderr, "%d\n", clusters_data->size ());
+
+  // Moved this here because
+  if (global_data.octrees)
+    system ("pcl_pcd_viewer -multiview 1 octree_clusters.pcd octree_planes.pcd");
+
   pcl::console::print_highlight (stderr, "Computing (4/6): Cluster information ");
   tt.tic ();
 

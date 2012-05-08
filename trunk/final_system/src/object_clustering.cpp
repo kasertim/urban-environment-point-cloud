@@ -54,7 +54,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
   // Is also the octree resolution.
   // Setting this too small could result in over-segmentation and also reduces speed too much
   // Setting this too high could result in under-segmentation
-  // Currently: analyze on voxels of 0.08 x 0.08 x 0.08 meter with slight alteration based on cluster aggressiveness
+  // Currently: analyze on voxels of 0.08 meters with slight alteration based on cluster aggressiveness
   float resolution = 0.08 * global_data.scale / pow (0.5 + global_data.cagg, 2);
   // Clusters within this distance (octree representation) from one another are very likely considered the same cluster.
   // Currently: adjacent points in the octree are considered connected.
@@ -291,6 +291,5 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
     pcl::io::savePCDFileBinary ("octree_clusters.pcd", *global_data.cloud_octree);
     pcl::console::print_info (stderr, "- Saved ");
     pcl::console::print_value (stderr, "octree_clusters.pcd ");
-     system("pcl_pcd_viewer -multiview 1 octree_clusters.pcd octree_planes.pcd") ;
   }
 }
