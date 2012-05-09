@@ -52,6 +52,10 @@ initVisualizer (pcl::visualization::PCLVisualizer &viewer);
 void
 pp_callback (const pcl::visualization::PointPickingEvent &event, void *point);
 
+// Get an input key pressed, and store in stop_void whether "0" is pressed
+void
+keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event, void* stop_void);
+
 // TODO The function checks for the existence of a classifier model inside the main directory.
 // TODO If it fails to load the model, it start a new training procedure of the classifier.
 // TODO In this version of the program, there is only one kind of noise (no distinction between vegetation and ghosts)
@@ -154,32 +158,51 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
     tree_.setInputCloud (fragm_cloud);
 
     // Visualize the whole cloud
+    int selected = -1; // save the picked cluster
+    bool stop = 0;
     while (!viewer.wasStopped())
     {
+      viewer.registerKeyboardCallback (keyboardEventOccurred, (void*) &stop);
+      boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+      viewer.spinOnce (500);
+      
       if (picked_point.x != 0.0f || picked_point.y != 0.0f || picked_point.z != 0.0f)  // if a point is clicked
       {
 //          cout << picked_point.x << " " << picked_point.y << " " << picked_point.z << endl;
         std::vector<int> pointIdxNKNSearch (1);
         std::vector<float> pointNKNSquaredDistance (1);
+	pcl::PointCloud<PointType>::Ptr cluster (new pcl::PointCloud<PointType>);
+        
         tree_.nearestKSearch (picked_point, 1, pointIdxNKNSearch, pointNKNSquaredDistance);
+	selected = pt_clst_pos[pointIdxNKNSearch[0]];
+	
 //         cout << fragm_cloud->points[pointIdxNKNSearch[0]].x
 //              << " " << fragm_cloud->points[pointIdxNKNSearch[0]].y
 //              << " " << fragm_cloud->points[pointIdxNKNSearch[0]].z
 //              << endl;
 //         cout << pt_clst_pos[pointIdxNKNSearch[0]] << endl << endl;
-
-        std::stringstream cluster_name;
-        cluster_name << "cluster" << pt_clst_pos[pointIdxNKNSearch[0]];
-        lab_cluster[ pt_clst_pos[pointIdxNKNSearch[0]] ] = 1; // cluster is marked as labelled
-        (*clusters_data) [pt_clst_pos[pointIdxNKNSearch[0]]].features.label = 1; // the cluster is set as a noise
-        viewer.removePointCloud (cluster_name.str().data());
+	
+	viewer.removePointCloud("cluster");
+	pcl::copyPointCloud (*cloud_in, * (*clusters_data) [selected].indices, *cluster);
+	pcl::visualization::PointCloudColorHandlerGenericField<PointType> rgb (cluster, "intensity");
+	viewer.addPointCloud<PointType> (cluster, rgb, "cluster");
 
         picked_point.x = 0.0f;
         picked_point.y = 0.0f;
         picked_point.z = 0.0f;
       }
-      boost::this_thread::sleep (boost::posix_time::microseconds (100000));
-      viewer.spinOnce (500);
+      
+      if(selected != -1 && stop)
+      {
+	std::stringstream cluster_name;
+        cluster_name << "cluster" << selected;
+        lab_cluster[ selected ] = 1; // cluster is marked as labelled
+        (*clusters_data) [ selected ].features.label = 1; // the cluster is set as a noise
+        viewer.removePointCloud(cluster_name.str().data());
+	viewer.removePointCloud("cluster");
+        stop = 0;
+	selected = -1;
+      }
     }
 
     // Close the viewer
@@ -278,7 +301,7 @@ initVisualizer (pcl::visualization::PCLVisualizer &viewer)
   viewer.camera_.pos[1] = 20000;
   viewer.camera_.pos[2] = 2500;
   viewer.updateCamera ();
-  viewer.addText ("Shift + click to select noisy objects", 50, 300, "user");
+  viewer.addText ("Shift + click to select noisy objects. \nPress 0 to confirm the removal.", 50, 300, "user");
 }
 
 void
@@ -290,4 +313,22 @@ pp_callback (const pcl::visualization::PointPickingEvent &event, void *point)
   idx = static_cast<PointType *> (point);
   // A single point has been selected
   event.getPoint ( (*idx).x, (*idx).y, (*idx).z);
+}
+
+void
+keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event, void* stop_void)
+{
+  bool *stop;
+  char *keyPressed = new char[50];
+
+  // Copy the pressed key inside a var
+  sprintf (keyPressed, "%c", event.getKeyCode ());
+  stop = static_cast<bool *> (stop_void);
+
+  // Check if 0 is pressed and return the value
+  if (strpbrk ("0", keyPressed))
+  {
+    *stop = 1;
+    //std::cout << "found " << *stop << std::endl;
+  }
 }
