@@ -97,22 +97,16 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
     if (data.value != 0.0 && std::isfinite (data.value))
       (*clusters_data)[c_it].features.SV.push_back (data);
 
-    // Save point density inside a bounding box
-    data.idx = 3;
-    data.value = density (cloud_in, (*clusters_data)[c_it].indices);
-    if (data.value != 0.0 && std::isfinite (data.value))
-      (*clusters_data)[c_it].features.SV.push_back (data);
-
     // Extract Principal Component analisys and save the first two normalized eigenvalues
     Eigen::Vector3f eig;
     eig = pca (cloud_in, (*clusters_data)[c_it].indices);
 
-    data.idx = 4;
+    data.idx = 3;
     data.value = eig[0];
     if (data.value != 0.0 && std::isfinite (data.value))
       (*clusters_data)[c_it].features.SV.push_back (data);
 
-    data.idx = 5;
+    data.idx = 4;
     data.value = eig[1];
     if (data.value != 0.0 && std::isfinite (data.value))
       (*clusters_data)[c_it].features.SV.push_back (data);
@@ -120,10 +114,15 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
     // Average octree adjacency of points
     // The resolution is the important parameter here: in the paper they vary this parameter and let the SVM select
     // the most appropriate. We could also suffice with a fixed scale I hope.
-    data.idx = 6;
+    data.idx = 5;
     data.value = octree_adjacency (cloud_in, (*clusters_data)[c_it].indices, 0.07 * global_data.scale);
     (*clusters_data)[c_it].features.SV.push_back (data);
 
+    // Save point density inside a bounding box
+//     data.idx = 3;
+//     data.value = density (cloud_in, (*clusters_data)[c_it].indices);
+//     if (data.value != 0.0 && std::isfinite (data.value))
+//       (*clusters_data)[c_it].features.SV.push_back (data);
   }
 }
 
