@@ -81,7 +81,7 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
     pcl::SVMDataPoint data; // Temp object
     (*clusters_data)[c_it].features.SV.clear (); // Reset the current features
 
-    // Save carcinality
+    // Save cardinality
     data.idx = 0;
     data.value = cardinality ((*clusters_data)[c_it].indices);
     (*clusters_data)[c_it].features.SV.push_back (data);
