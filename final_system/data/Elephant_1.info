@@ -1,0 +1,15 @@
+Parameters:
+-scale 1500
+-cagg 0.5
+-pground 0.1
+-plarge 0.1
+-psmall 0.001
+
+Noises manually removed:
+1x moving person
+
+Notes:
+The segmented ground planes intersect with noise objects and these parts still remain afterwards
+-> caused by the two level ground planes due to stairs
+-> solved slightly by changing -pground to 0.1
+

@@ -1,0 +1,16 @@
+Parameters:
+-scale 1500
+-cagg 0.75
+-pground 0.05
+-plarge 0.1
+-psmall 0.001
+
+Noises manually removed:
+Varying sizes of leaves clusters
+Moving people/cars
+
+Notes:
+Leaves don't disconnect from trunks at cagg 0.5
+Although it is still difficult to detach them on other settings of cagg.
+Clustering algo needs improvement.
+

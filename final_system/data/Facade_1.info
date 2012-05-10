@@ -1,0 +1,13 @@
+Parameters:
+-scale 1500
+-cagg 0.5
+-pground 0.05
+-plarge 0.1
+-psmall 0.001
+
+Noises manually removed:
+3x arc-like structures
+
+Notes:
+The output file hardly removed my manually classified noise
+
