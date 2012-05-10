@@ -1,0 +1,21 @@
+Parameters:
+-scale 1500
+-cagg 0.8
+-pground 0.1
+-plarge 1.0
+-psmall 0.001
+
+Noises manually removed:
+Various instances of varying size leaves clusters
+
+Notes:
+The segmented ground planes intersect with noise objects and these parts still remain afterwards
+-> caused by the two level ground planes due to slanting in ground plane
+-> solved slightly by changing -pground to 0.1
+
+The largest cluster is a group of leaves and is actually noise
+-> solved by changing -plarge to 1.0
+
+Trunks of trees are too often attached to the leaves
+-> solved by changing -cagg to 0.8
+

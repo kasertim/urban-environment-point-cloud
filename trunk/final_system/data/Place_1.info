@@ -1,0 +1,18 @@
+Parameters:
+-scale 1500
+-cagg 0.7
+-pground 0.1
+-plarge 0.1
+-psmall 0.001
+
+Noises manually removed:
+Various instances of varying size leaves clusters
+
+Notes:
+The segmented ground planes intersect with noise objects and these parts still remain afterwards
+-> caused by the two level ground planes due to slanting in ground plane
+-> solved slightly by changing -pground to 0.1
+
+Trunks of trees are too often attached to the leaves or objects near the trunks
+-> solved by changing -cagg to 0.7
+
