@@ -222,8 +222,8 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
     // Setting the training classifier
     pcl::SVMParam trainParam;
     trainParam.probability = 1; // Estimates the probabilities
-    trainParam.C = 8; // Initial C value of the classifier
-    trainParam.gamma = 0.5; // Initial gamma value of the classifier
+    trainParam.C = 512; // Initial C value of the classifier
+    trainParam.gamma = 2; // Initial gamma value of the classifier
 
     ml_svm_training.setInputTrainingSet (featuresSet);  // Set input training set
     ml_svm_training.setParameters (trainParam);
