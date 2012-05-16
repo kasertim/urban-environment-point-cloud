@@ -36,29 +36,31 @@
  */
 
 #include "../svm_wrapper.h"
-#include <pcl/kdtree/kdtree_flann.h>
-#include <pcl/filters/voxel_grid.h>
 #include <boost/thread/thread.hpp>
 #include <pcl/visualization/cloud_viewer.h>
 #include <fstream>
 
 // TODO: We have only few cluster to work on. The classifier need more samples to perform a better training. We will prepare a k-nearest search to avoid the problem.
 
+// Display single cluster asking for an user input. It can be 0 for good cluster, 1 for ghosts, 2 for trees.
+int
+getInputLabel (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::IndicesPtr indices_, int i, int n_clusters_,
+               boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer);
+
 // Initialize the Visualizer
 void
-initVisualizer (pcl::visualization::PCLVisualizer &viewer);
+initVisualizer (boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer, 
+		const pcl::PointCloud<PointType>::Ptr cloud_in);
 
-// Callback of the mouse input
-void
-pp_callback (const pcl::visualization::PointPickingEvent &event, void *point);
-
-// Get an input key pressed, and store in stop_void whether "0" is pressed
+// Get an input key pressed, and store in stop_void whether 0, 1 or 2 is pressed
 void
 keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event, void* stop_void);
 
-// TODO The function checks for the existence of a classifier model inside the main directory.
-// TODO If it fails to load the model, it start a new training procedure of the classifier.
-// TODO In this version of the program, there is only one kind of noise (no distinction between vegetation and ghosts)
+// Free the buffer
+void
+deleteBuffer (const pcl::visualization::KeyboardEvent &event, void* stop_void);
+
+// TODO The function checks for the existence of a classifier model inside the main directory. If it fails to load the model, it start a new training procedure of the classifier.
 
 /** \brief The machine learning classifier, results are stored in the ClusterData structs.
   * \param[in] cloud_in A pointer to the input point cloud.
@@ -73,6 +75,7 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
 
   std::vector<pcl::SVMData> featuresSet; // Create the input vector for the SVM class
   std::vector<std::vector<double> > predictionOut; // Prediction output vector
+
   // If the input model_filename exists, it starts the classification.
   // Otherwise it starts a new machine learning training.
   if (global_data.model.size() > 0)
@@ -90,123 +93,41 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
     ml_svm_classify.saveNormClassProblem ("data_input"); //Save clusters features
     ml_svm_classify.setProbabilityEstimates (1); // Estimates the probabilities
     ml_svm_classify.classification ();
+
+//     FILE.close();
+
   }
   else
   {
-    // Currently: analyze on voxels of 0.08 x 0.08 x 0.08 meter with slight alteration based on cluster aggressiveness
-    float resolution = 0.08 * global_data.scale / pow (0.5 + global_data.cagg, 2);
-    // Create the viewer
-    pcl::visualization::PCLVisualizer viewer ("cluster viewer");
-
     // Output classifier model name
-    global_data.model.assign (global_data.cloud_name.data());
+    global_data.model.assign (global_data.cloud_name.data() );
     global_data.model.append (".model");
+    
+    // Initialize the viewer
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer 
+      (new pcl::visualization::PCLVisualizer ("Cluster Viewer"));
+    
+    initVisualizer (viewer, cloud_in);
 
-    std::vector<bool> lab_cluster;// save whether a cluster is labelled
-    std::vector<int> pt_clst_pos; // used to memorize in the total cloud, the point affiliation to the original cluster
-
-    // fill the vector (1 = labelled, 0 = unlabelled)
-    lab_cluster.resize ( (std::size_t) clusters_data->size ());
+    // Checks an user input for each cluster. Stores the input in the label field-
+    // If a cluster is already marked as isolated, it will not be used to train the classifier and it's automatically labelled as zero (as good point)
     for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
     {
       if ( (*clusters_data) [c_it].is_isolated)
-      {
         (*clusters_data) [c_it].features.label = 0;
-        lab_cluster[c_it] = 1;
-      }
       else
-        lab_cluster[c_it] = 0;
+        (*clusters_data) [c_it].features.label =
+          (double) getInputLabel (cloud_in, (*clusters_data) [c_it].indices, c_it + 1, clusters_data->size (), viewer);
     }
 
-    // Build a cloud with unlabelled clusters
-    pcl::PointCloud<PointType>::Ptr fragm_cloud (new pcl::PointCloud<PointType>);
-
-    // Initialize the viewer
-    initVisualizer (viewer);
-    PointType picked_point; // changed whether a mouse click occours. It saves the selected cluster index
-    viewer.registerPointPickingCallback (&pp_callback, (void *) &picked_point);
-    
-    // Create a cloud with unlabelled clusters
-    for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
-      if (!lab_cluster[c_it])
-      {
-        pcl::PointCloud<PointType>::Ptr cluster (new pcl::PointCloud<PointType>);
-        pcl::copyPointCloud (*cloud_in, * (*clusters_data) [c_it].indices, *cluster);
-	
-	// Downsample cluster
-	pcl::VoxelGrid<PointType> sor;
-	sor.setInputCloud (cluster);
-        sor.setLeafSize (resolution, resolution, resolution);
-	sor.filter (*cluster);
-	
-	// Copy cluster into a global cloud
-        fragm_cloud->operator+= (*cluster);
-
-        // Fill a vector to memorize the original affiliation of a point to the cluster
-        for (int clust_pt = 0; clust_pt < cluster->size(); clust_pt++)
-          pt_clst_pos.push_back (c_it);
-
-        // Add cluster to the viewer
-        std::stringstream cluster_name;
-        cluster_name << "cluster" << c_it;
-        pcl::visualization::PointCloudColorHandlerGenericField<PointType> rgb (cluster, "intensity");// Get color handler for the cluster cloud
-        viewer.addPointCloud<PointType> (cluster, rgb, cluster_name.str().data());
-      }
-    
-    // Create a tree for point searching in the total cloud
-    pcl::KdTreeFLANN<pcl::PointXYZI> tree_;
-    tree_.setInputCloud (fragm_cloud);
-
-    // Visualize the whole cloud
-    int selected = -1; // save the picked cluster
-    bool stop = 0;
-    while (!viewer.wasStopped())
-    {
-      viewer.registerKeyboardCallback (keyboardEventOccurred, (void*) &stop);
-      boost::this_thread::sleep (boost::posix_time::microseconds (100000));
-      viewer.spinOnce (500);
-      
-      if (picked_point.x != 0.0f || picked_point.y != 0.0f || picked_point.z != 0.0f)  // if a point is clicked
-      {
-        std::vector<int> pointIdxNKNSearch (1);
-        std::vector<float> pointNKNSquaredDistance (1);
-	pcl::PointCloud<PointType>::Ptr cluster (new pcl::PointCloud<PointType>);
-        
-        tree_.nearestKSearch (picked_point, 1, pointIdxNKNSearch, pointNKNSquaredDistance);
-	selected = pt_clst_pos[pointIdxNKNSearch[0]];
-	
-	viewer.removePointCloud("cluster");
-	pcl::copyPointCloud (*cloud_in, * (*clusters_data) [selected].indices, *cluster);
-	pcl::visualization::PointCloudColorHandlerGenericField<PointType> rgb (cluster, "intensity");
-	viewer.addPointCloud<PointType> (cluster, rgb, "cluster");
-
-        picked_point.x = 0.0f;
-        picked_point.y = 0.0f;
-        picked_point.z = 0.0f;
-      }
-      
-      if(selected != -1 && stop)
-      {
-	std::stringstream cluster_name;
-        cluster_name << "cluster" << selected;
-        lab_cluster[ selected ] = 1; // cluster is marked as labelled
-        (*clusters_data) [ selected ].features.label = 1; // the cluster is set as a noise
-        viewer.removePointCloud(cluster_name.str().data());
-	viewer.removePointCloud("cluster");
-        stop = 0;
-	selected = -1;
-      }
-    }
+//         double labels[] = {2,0,2,1,0,0,0,0,0,1,0,0,0};
+//         for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
+//         {
+//             (*clusters_data)[c_it].features.label = labels[c_it];
+//         }
 
     // Close the viewer
-    viewer.close();
-
-    // The remaining unlabelled clusters are marked as "good"
-    for (int c_it = 0; c_it < lab_cluster.size(); c_it++)
-    {
-      if (!lab_cluster[c_it])
-        (*clusters_data) [c_it].features.label = 0; // Mark remaining clusters as good
-    }
+    viewer->close();
 
     // Copy the input vector for the SVM classification
     for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
@@ -215,16 +136,16 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
     // Setting the training classifier
     pcl::SVMParam trainParam;
     trainParam.probability = 1; // Estimates the probabilities
-    trainParam.C = 512; // Initial C value of the classifier
-    trainParam.gamma = 2; // Initial gamma value of the classifier
-
+    trainParam.C = 8; // Initial C value of the classifier
+    trainParam.gamma = 0.5; // Initial gamma value of the classifier
+    
     ml_svm_training.setInputTrainingSet (featuresSet);  // Set input training set
     ml_svm_training.setParameters (trainParam);
     ml_svm_training.trainClassifier(); // Train the classifier
     ml_svm_training.saveClassifierModel (global_data.model.data()); // Save classifier model
     pcl::console::print_highlight (stderr, "Saved ");
     pcl::console::print_value (stderr, "%s ", global_data.model.data());
-    ml_svm_training.saveTrainingSet ("data_input"); // Save clusters features normalized
+    ml_svm_training.saveNormTrainingSet ("data_input_norm"); // Save clusters features normalized
 
     // Test the current classification
     ml_svm_classify.loadClassifierModel (global_data.model.data());
@@ -281,47 +202,112 @@ applyObjectClassification (const pcl::PointCloud<PointType>::Ptr cloud_in, boost
 };
 
 void
-initVisualizer (pcl::visualization::PCLVisualizer &viewer)
+initVisualizer (boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer, 
+		const pcl::PointCloud<PointType>::Ptr cloud_in)
 {
-  // Setting the initial viewer parameters
-  viewer.initCameraParameters ();
-  viewer.setBackgroundColor (0, 0, 0);
-  viewer.addCoordinateSystem (1000);
-  viewer.camera_.view[0] = 0;
-  viewer.camera_.view[1] = 0;
-  viewer.camera_.view[2] = 1;
-  viewer.camera_.pos[0] = 8000;
-  viewer.camera_.pos[1] = 20000;
-  viewer.camera_.pos[2] = 2500;
-  viewer.updateCamera ();
-  viewer.addText ("Shift + click to select noisy objects. \nPress 0 to confirm the removal.", 50, 300, "user");
+  // Setting the initial viewer parameters 
+  viewer->initCameraParameters ();
+  viewer->setBackgroundColor (0, 0, 0);
+  viewer->addCoordinateSystem (1000);
+  viewer->camera_.view[0] = 0;
+  viewer->camera_.view[1] = 0;
+  viewer->camera_.view[2] = 1;
+  viewer->camera_.pos[0] = 8000;
+  viewer->camera_.pos[1] = 20000;
+  viewer->camera_.pos[2] = 2500;
+  viewer->updateCamera ();
+  
+  //pcl::visualization::PointCloudColorHandlerGenericField<PointType> rgb (global_data.cloud_octree, "intensity");
+  viewer->addPointCloud<PointType>(global_data.cloud_octree, "cloud_in");
 }
 
-void
-pp_callback (const pcl::visualization::PointPickingEvent &event, void *point)
+int
+getInputLabel (const pcl::PointCloud<PointType>::Ptr cloud_in, pcl::IndicesPtr indices_, int i, int n_clusters_,
+               boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer)
 {
-  if (event.getPointIndex () == -1)
-    return;
-  PointType *idx;
-  idx = static_cast<PointType *> (point);
-  // A single point has been selected
-  event.getPoint ( (*idx).x, (*idx).y, (*idx).z);
+
+  // Create a point cloud copy with the cluster info
+  pcl::PointCloud<PointType>::Ptr cluster (new pcl::PointCloud<PointType>);
+  pcl::copyPointCloud (*cloud_in, *indices_, *cluster);
+  int stop = -1;
+  bool delBuff = 0;
+
+  // Get color handler for the cluster cloud
+  pcl::visualization::PointCloudColorHandlerGenericField<PointType> rgb (cluster, "intensity");
+  //int v2(0);
+  //viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+  viewer->removePointCloud ("cloud"); // Clean viewer
+  viewer->addPointCloud<PointType> (cluster, rgb, "cloud"); // Add the pointcloud
+  viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "cloud"); // Set viewer point size
+
+  // Add text
+  viewer->removeText3D ("user");
+  viewer->addText ("Input the label for the displayed cluster: \n 0 : Good Points\n 1 : Ghost Points\n 2 : Vegetation Points", 50, 300, "user");
+  
+  // update the number of clusters
+  viewer->removeText3D ("input");
+  std::stringstream num;
+  num << "cluster " << i << " of " << n_clusters_;
+  viewer->addText (num.str ().data (), 100, 3, "input");
+
+  // clean to reset the standard input of the viewer
+  std::cin.clear();
+  
+  while (stop == 0)
+  {
+    boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+    stop = 1;
+    viewer->registerKeyboardCallback (deleteBuffer, (void*) &stop);
+    viewer->spinOnce (500);
+  }
+  
+  // clean to reset the standard input of the viewer
+  std::cin.clear();
+  
+  // Spin the viewer until 0, 1 or 2 are pressed
+  while (stop == -1)
+  {
+    boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+    viewer->registerKeyboardCallback (keyboardEventOccurred, (void*) &stop);
+    viewer->spinOnce (500);
+  }
+  
+  // clean to reset the standard input of the viewer
+  std::cin.clear();
+  
+  // Return the input value
+  return stop;
 }
 
 void
 keyboardEventOccurred (const pcl::visualization::KeyboardEvent &event, void* stop_void)
 {
-  bool *stop;
+  int *stop;
   char *keyPressed = new char[50];
 
   // Copy the pressed key inside a var
   sprintf (keyPressed, "%c", event.getKeyCode ());
-  stop = static_cast<bool *> (stop_void);
+  stop = static_cast<int *> (stop_void);
 
-  // Check if 0 is pressed and return the value
-  if (strpbrk ("0", keyPressed))
+  // Check if 0, 1 or 2 are pressed and return the value
+  if (strpbrk ("012", keyPressed))
   {
-    *stop = 1;
+    *stop = atoi (keyPressed);
     //std::cout << "found " << *stop << std::endl;
   }
+
+  // Avoiding the window closing with 'q' and 'e'
+  if (event.getKeyCode () == 'q' || event.getKeyCode () == 'e')
+  {
+    //std::cout << "quit " << keyPressed << std::endl;
+    *stop = -1;
+  }
+}
+
+void
+deleteBuffer (const pcl::visualization::KeyboardEvent &event, void* stop_void)
+{
+  bool *stop;
+  stop = static_cast<bool *> (stop_void);
+  *stop = false;
 }
