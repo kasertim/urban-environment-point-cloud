@@ -78,7 +78,7 @@ namespace pcl
       C = 1; // for C_SVC, EPSILON_SVR and NU_SVR
       eps = 1e-3; // stopping criteria
       p = 0.1; // for EPSILON_SVR
-      shrinking = 1; // use the shrinking heuristics
+      shrinking = 0; // use the shrinking heuristics
       probability = 0; // do probability estimates
 
       nr_weight = 0; // for C_SVC

@@ -39,6 +39,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/console/parse.h>
 #include <pcl/console/time.h>
+#include <pcl/octree/octree.h>
 #include "svm_wrapper.h"
 
 // The point type used
@@ -52,6 +53,7 @@ struct GlobalData
   std::string model, cloud_name; // I'd rather see the I/O in anf.cpp and that the contents is passed to SVM
   bool train, octrees;
   pcl::PointCloud<PointType>::Ptr cloud_octree;
+  pcl::octree::OctreePointCloudSearch<PointType> octree;
 
   GlobalData () :
       x_min (std::numeric_limits<float>::max ()), y_min (std::numeric_limits<float>::max ()),
@@ -60,6 +62,7 @@ struct GlobalData
       z_size (std::numeric_limits<float>::min ()), i_size (std::numeric_limits<float>::min ()),
       scale (1500.0), cagg (0.5), pground (0.05), plarge (0.1), psmall (0.001),
       octrees (false),
+      octree(0),
       cloud_octree(new pcl::PointCloud<PointType>)
   {}
 };
@@ -67,16 +70,22 @@ struct GlobalData
 // Information holder for each cluster
 struct ClusterData
 {
-  pcl::IndicesPtr indices;
+  pcl::IndicesPtr indices; // cluster indices in the octree representation
+  pcl::IndicesPtr octree_indices; // cluster indices in the octree representation
   pcl::SVMData features;
   // Classification bool
   bool is_isolated, is_good, is_tree, is_ghost;
 
   // Classification probabilities
   float is_good_prob, is_tree_prob, is_ghost_prob;
+  
+  // Subclustering indices & features
+  std::vector<pcl::PointIndices> sub_indices;
+  std::vector<pcl::SVMData> sub_features;
 
   ClusterData () :
       indices (new std::vector<int>),
+      octree_indices (new std::vector<int>),
       features (),
       is_isolated (false), is_good (false), is_tree (false), is_ghost (false),
       is_good_prob (0.0), is_tree_prob (0.0), is_ghost_prob (0.0)
@@ -90,8 +99,8 @@ GlobalData global_data;
 #include "src/global_information.cpp"
 #include "src/plane_segmentation.cpp"
 #include "src/object_clustering.cpp"
-#include "src/cluster_information.cpp"
-#include "src/object_classification.cpp"
+#include "src/cluster_information_v2.cpp"
+#include "src/object_classification_v3.cpp"
 #include "src/noise_filtering.cpp"
 
 void
