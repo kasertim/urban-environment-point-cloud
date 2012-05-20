@@ -80,7 +80,7 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
   pcl::search::Search<pcl::PointXYZI>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZI>);
   // For each cluster, sub_clustering is calculated
   pcl::EuclideanClusterExtraction<pcl::PointXYZI> ec;
-  ec.setClusterTolerance (100);
+  ec.setClusterTolerance (global_data.octree.getResolution() * 1.42);
   ec.setSearchMethod (tree);
 
   for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
@@ -93,14 +93,14 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
     //ec.setIndices ( (*clusters_data) [c_it].octree_indices);
     ec.setInputCloud(temp_cloud);
     ec.extract (sub_indices);
-    //ec.extract ((*clusters_data) [c_it].sub_indices);
 
-          ////// save
-      if (c_it == 1){
-	pcl::io::savePCDFileBinary("clust_tot1.pcd",*temp_cloud);
-	pcl::io::savePCDFileBinary("clust_tot2.pcd",*temp_cloud2);
-      }
-      //////////
+    ////// save
+    if (0 && c_it == 1)
+    {
+      pcl::io::savePCDFileBinary ("clust_tot1.pcd", *temp_cloud);
+      pcl::io::savePCDFileBinary ("clust_tot2.pcd", *temp_cloud2);
+    }
+    //////////
     
     // convert octree indices to cloud indices
     (*clusters_data) [c_it].sub_indices.resize (sub_indices.size ());
@@ -114,17 +114,16 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
           (*clusters_data) [c_it].sub_indices[si_it].indices.end (), voxel_indices.begin (), voxel_indices.end ()
         );
       }
-              ////// save
-        if (c_it == 1)
-        {
-          pcl::PointCloud<PointType>::Ptr cloud_temp1 (new pcl::PointCloud<PointType>);
-          pcl::copyPointCloud (*temp_cloud, sub_indices[si_it].indices, *cloud_temp1);
-	  std::stringstream naa;
-	  naa << "clust_"<< si_it << ".pcd";
-          pcl::io::savePCDFileBinary ( naa.str().data() , *cloud_temp1);
-        }
-        //////////
-      
+      ////// save
+      if (0 && c_it == 1)
+      {
+        pcl::PointCloud<PointType>::Ptr cloud_temp1 (new pcl::PointCloud<PointType>);
+        pcl::copyPointCloud (*temp_cloud, sub_indices[si_it].indices, *cloud_temp1);
+        std::stringstream naa;
+        naa << "clust_" << si_it << ".pcd";
+        pcl::io::savePCDFileBinary (naa.str().data() , *cloud_temp1);
+      }
+      //////////
     }
     
   }

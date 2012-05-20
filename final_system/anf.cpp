@@ -70,7 +70,7 @@ struct GlobalData
 // Information holder for each cluster
 struct ClusterData
 {
-  pcl::IndicesPtr indices; // cluster indices in the octree representation
+  pcl::IndicesPtr indices; // cluster indices
   pcl::IndicesPtr octree_indices; // cluster indices in the octree representation
   pcl::SVMData features;
   // Classification bool
