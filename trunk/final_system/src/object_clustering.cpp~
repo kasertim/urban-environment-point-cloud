@@ -55,6 +55,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
   // Setting this too high could result in under-segmentation
   // Currently: analyze on voxels of 0.08 meters with slight alteration based on cluster aggressiveness
   float resolution = 0.08 * global_data.scale / pow (0.5 + global_data.cagg, 2);
+  std::cout << std::endl<< std::endl<< resolution << std::endl;
   // Clusters within this distance (octree representation) from one another are very likely considered the same cluster.
   // Currently: adjacent points in the octree are considered connected.
   // This value could be slightly larger than sqrt(1), sqrt(2) or sqrt(3) depending on how you want to deal with diagonals.
@@ -78,11 +79,11 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
 
   // An octree representation class for temporary downsampling and density normalization
   //pcl::octree::OctreePointCloudSearch<PointType> octree (resolution);
-  global_data.octree_rep.setResolution(resolution);
+  global_data.octree.setResolution(resolution);
   //pcl::PointCloud<PointType>::Ptr global_data.cloud_octree (new pcl::PointCloud<PointType>);
-  global_data.octree_rep.setInputCloud (cloud_in, indices);
-  global_data.octree_rep.addPointsFromInputCloud ();
-  global_data.octree_rep.getOccupiedVoxelCenters (global_data.cloud_octree->points);
+  global_data.octree.setInputCloud (cloud_in, indices);
+  global_data.octree.addPointsFromInputCloud ();
+  global_data.octree.getOccupiedVoxelCenters (global_data.cloud_octree->points);
   global_data.cloud_octree->width = global_data.cloud_octree->points.size ();
   global_data.cloud_octree->height = 1;
 
@@ -103,7 +104,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
   for (size_t p_it = 0; p_it < intensity.size (); ++p_it)
   {
     std::vector<int> voxel_indices;
-    global_data.octree_rep.voxelSearch (global_data.cloud_octree->points[p_it], voxel_indices);
+    global_data.octree.voxelSearch (global_data.cloud_octree->points[p_it], voxel_indices);
     for (size_t vi_it = 0; vi_it < voxel_indices.size (); ++vi_it)
       intensity[p_it] += (*cloud_in).points[voxel_indices[vi_it]].intensity;
     intensity[p_it] /= voxel_indices.size ();
@@ -225,7 +226,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
       {
         global_data.cloud_octree->points[seed_queue[sq_it]].intensity = color;
         std::vector<int> voxel_indices;
-        global_data.octree_rep.voxelSearch (global_data.cloud_octree->points[seed_queue[sq_it]], voxel_indices);
+        global_data.octree.voxelSearch (global_data.cloud_octree->points[seed_queue[sq_it]], voxel_indices);
         cluster.indices->insert (cluster.indices->end (), voxel_indices.begin (), voxel_indices.end ());
       }
       clusters_data->push_back (cluster);
@@ -280,7 +281,7 @@ applyObjectClustering (const pcl::PointCloud<PointType>::Ptr cloud_in, const pcl
     for (size_t sq_it = 0; sq_it < seed_queue.size (); ++sq_it)
     {
       std::vector<int> voxel_indices;
-      global_data.octree_rep.voxelSearch (global_data.cloud_octree->points[seed_queue[sq_it]], voxel_indices);
+      global_data.octree.voxelSearch (global_data.cloud_octree->points[seed_queue[sq_it]], voxel_indices);
       cluster.indices->insert (cluster.indices->end (), voxel_indices.begin (), voxel_indices.end ());
     }
     cluster.is_isolated = true;

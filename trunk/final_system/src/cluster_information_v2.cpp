@@ -80,7 +80,7 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
   pcl::search::Search<pcl::PointXYZI>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZI>);
   // For each cluster, sub_clustering is calculated
   pcl::EuclideanClusterExtraction<pcl::PointXYZI> ec;
-  ec.setClusterTolerance (100);
+  ec.setClusterTolerance (global_data.octree.getResolution() * 1.42);
   ec.setSearchMethod (tree);
 
   for (size_t c_it = 0; c_it < clusters_data->size (); ++c_it)
@@ -94,7 +94,7 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
     ec.setInputCloud(temp_cloud);
     ec.extract (sub_indices);
 
-    ////// save
+    ////// save debug
     if (0 && c_it == 1)
     {
       pcl::io::savePCDFileBinary ("clust_tot1.pcd", *temp_cloud);
@@ -114,7 +114,7 @@ gatherClusterInformation (const pcl::PointCloud<PointType>::Ptr cloud_in, boost:
           (*clusters_data) [c_it].sub_indices[si_it].indices.end (), voxel_indices.begin (), voxel_indices.end ()
         );
       }
-      ////// save
+      ////// save debug
       if (0 && c_it == 1)
       {
         pcl::PointCloud<PointType>::Ptr cloud_temp1 (new pcl::PointCloud<PointType>);
